@@ -1,3 +1,0 @@
-/Users/sams/CLionProjects/damn-vulnerable-web-server/cmake-build-debug/CMakeFiles/untitled11.dir
-/Users/sams/CLionProjects/damn-vulnerable-web-server/cmake-build-debug/CMakeFiles/edit_cache.dir
-/Users/sams/CLionProjects/damn-vulnerable-web-server/cmake-build-debug/CMakeFiles/rebuild_cache.dir
