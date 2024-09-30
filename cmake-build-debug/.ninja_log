@@ -1,0 +1,16 @@
+# ninja log v5
+208	312	1727729507576686045	untitled11	8c2646c3d194c77b
+4	164	1727729507416812847	CMakeFiles/untitled11.dir/base64.c.o	4a1d430cb69adf63
+3	208	1727729507472516832	CMakeFiles/untitled11.dir/authentication.c.o	d517b034dbaed707
+0	173	1727729507436922871	CMakeFiles/untitled11.dir/main.c.o	607a03acc0091523
+1	90	1727729910181581237	build.ninja	6e00be15225b2542
+0	169	1727729507431704407	CMakeFiles/untitled11.dir/mime_type_handler.c.o	4a70beb7bfe4f548
+0	136	1727729507396444988	CMakeFiles/untitled11.dir/request_logger.c.o	2d7dad4a39c77ff4
+2	171	1727729507432673866	CMakeFiles/untitled11.dir/error_handling.c.o	506079dfdc10a94b
+2	145	1727729912665201983	CMakeFiles/untitled11.dir/error_handling.c.o	c2dd33537027ca7f
+2	146	1727729912665439231	CMakeFiles/untitled11.dir/request_logger.c.o	630d14279e4d43b1
+1	163	1727729912681560465	CMakeFiles/untitled11.dir/main.c.o	2034b22d808905a0
+1	178	1727729912705935585	CMakeFiles/untitled11.dir/mime_type_handler.c.o	695ed2d2b053bc5f
+3	179	1727729912706875951	CMakeFiles/untitled11.dir/base64.c.o	4cce87952b39e1e1
+2	193	1727729912719195469	CMakeFiles/untitled11.dir/authentication.c.o	50ad36d176a15e81
+193	257	1727729912785065392	untitled11	8c2646c3d194c77b

@@ -1,0 +1,9 @@
+[2023-06-08 21:48:06] Request:
+GET /index.html
+
+[2023-06-08 21:48:06] Response:
+HTTP/1.1 200 OK
+Content-Type: text/html
+
+
+
