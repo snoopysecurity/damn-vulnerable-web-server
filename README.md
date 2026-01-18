@@ -53,7 +53,7 @@ To find vulnerabilities automatically using AFL++, we have provided a Docker set
 
 2.  **Run the fuzzer**:
     ```bash
-    docker run --rm -it vuln-server-fuzz
+    docker run --rm -v $(pwd)/fuzz_output:/src/fuzz/out vuln-server-fuzz
     ```
 
 This will compile the server with ASan (Address Sanitizer) and run AFL++ in a container. The server has been modified to support a `--fuzz` flag which reads requests from stdin, making it compatible with AFL's standard mode.
