@@ -304,13 +304,42 @@ void handle_request(int client_socket, const char* request) {
 
 int main(int argc, char* argv[]) {
     if (argc < 3) {
-        std::cout << "Usage: " << argv[0] << " SERVER_DIR PORT" << std::endl;
+        std::cout << "Usage: " << argv[0] << " SERVER_DIR PORT [--fuzz]" << std::endl;
         std::cout << "Please specify server directory and port number" << std::endl;
         return 1;
     }
 
     strcpy(SERVER_DIR, argv[1]);  // buffer overflow
     int port = atoi(argv[2]);
+
+    // Check for fuzzing mode
+    bool fuzz_mode = false;
+    if (argc > 3 && strcmp(argv[3], "--fuzz") == 0) {
+        fuzz_mode = true;
+    }
+
+    if (fuzz_mode) {
+        // Read from stdin for AFL++
+        char request[MAX_REQUEST_SIZE];
+        memset(request, 0, sizeof(request));
+        
+        // Read until EOF or buffer full
+        size_t total_read = 0;
+        while (total_read < sizeof(request) - 1) {
+            ssize_t bytes = read(STDIN_FILENO, request + total_read, sizeof(request) - 1 - total_read);
+            if (bytes <= 0) break;
+            total_read += bytes;
+        }
+
+        if (total_read > 0) {
+            // In fuzz mode, we just pass 0 as socket because we won't be sending response back to network
+            // The response handling functions might try to send(), which will fail on 0 (stdin) or write to stdout
+            // ideally we should redirect output to /dev/null or similar in response_handler, but for crashing
+            // this is sufficient.
+            handle_request(0, request);
+        }
+        return 0;
+    }
 
     int server_socket, client_socket;
     struct sockaddr_in server_address{}, client_address{};

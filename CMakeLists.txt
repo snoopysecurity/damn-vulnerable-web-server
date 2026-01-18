@@ -22,6 +22,14 @@ add_executable(damn_vulnerable_web_server
 
 option(ENABLE_ASLR "Enable Address Space Layout Randomization (ASLR)" OFF)
 
+option(ENABLE_ASAN "Enable Address Sanitizer" OFF)
+
+if(ENABLE_ASAN)
+    message(STATUS "Address Sanitizer Enabled")
+    target_compile_options(damn_vulnerable_web_server PRIVATE -fsanitize=address -g)
+    target_link_options(damn_vulnerable_web_server PRIVATE -fsanitize=address)
+endif()
+
 # Only apply flags after target is defined
 if(ENABLE_ASLR)
     message(STATUS "ASLR Enabled")

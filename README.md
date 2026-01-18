@@ -41,3 +41,21 @@ You can verify the ASLR status of the build using the provided test script:
 
 #### Solutions
 Read solutions.md
+
+#### Fuzzing with AFL++
+
+To find vulnerabilities automatically using AFL++, we have provided a Docker setup.
+
+1.  **Build the Docker image**:
+    ```bash
+    docker build -t vuln-server-fuzz .
+    ```
+
+2.  **Run the fuzzer**:
+    ```bash
+    docker run --rm -it vuln-server-fuzz
+    ```
+
+This will compile the server with ASan (Address Sanitizer) and run AFL++ in a container. The server has been modified to support a `--fuzz` flag which reads requests from stdin, making it compatible with AFL's standard mode.
+
+Crashes will be saved in `fuzz/out/default/crashes/`.
