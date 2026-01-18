@@ -1,0 +1,8 @@
+Server started on port 8082
+Request Path: /admin/logger_config
+Authorization header (raw): [Basic YWRtaW46YWRtaW4=]
+Base64 decoded: [admin:admin]
+Request Path: /admin/logger_config
+Authorization header (raw): [Basic YWRtaW46YWRtaW4=]
+Base64 decoded: [admin:admin]
+Request Path: /

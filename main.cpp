@@ -16,10 +16,11 @@
 
 char SERVER_DIR[200];
 
-void send_authentication_required_response(int client_socket, const char* file_path, const char* request, const std::string& set_cookie_header = "") {
+// Renamed from send_authentication_required_response to reflect what it actually does
+void serve_file(int client_socket, const char* file_path, const char* request, const std::string& set_cookie_header = "") {
     std::string response_header;
 
-    FILE* file = fopen(file_path, "r");  //path traversal
+    FILE* file = fopen(file_path, "r");  // path traversal logic preserved
 
     if (file == nullptr) {
         perror("Failed to open file");
@@ -34,7 +35,7 @@ void send_authentication_required_response(int client_socket, const char* file_p
         if (!set_cookie_header.empty()) response_header += set_cookie_header;
         response_header += "\r\n";
 
-        log_request_response(request, response_header);  // Log even for PHP
+        log_request_response(request, response_header);
         handle_php_file(file, &client_socket, response_header.c_str());
         fclose(file);
         return;
@@ -89,6 +90,7 @@ void handle_request(int client_socket, const char* request) {
     *path_end = '\0';
     char* path_with_query = path_start + 5;
 
+    // Buffer Overflow Vulnerability Preserved
     char clean_path[200];
     strcpy(clean_path, path_with_query);
 
@@ -99,7 +101,7 @@ void handle_request(int client_socket, const char* request) {
 
     // 🚨 Special path for viewing logs
     if (strcmp(clean_path, "logs") == 0) {
-        handle_log_viewer(client_socket, request);  // log_viewer function still in place
+        handle_log_viewer(client_socket, request);
         close(client_socket);
         free(request_copy);
         return;
@@ -112,6 +114,8 @@ void handle_request(int client_socket, const char* request) {
     }
 
     std::cout << "Request Path: " << clean_path << std::endl;
+
+    bool authenticated = false;
 
     // Check if the path starts with "/admin"
     if (strncmp(clean_path, "/admin/", 7) == 0) {
@@ -134,39 +138,29 @@ void handle_request(int client_socket, const char* request) {
         }
 
         if (authenticate(username, password)) {
-            // Authentication successful, proceed with request handling
-            char file_path[200];
-            strcpy(file_path, SERVER_DIR);
-            strcat(file_path, clean_path);  // Path to the requested file
+            authenticated = true;
 
-            // Cookie management (set session cookie for authenticated user)
-            std::string session_id = get_session_id_from_cookie(request);
-            std::string set_cookie_header = "";
-            if (session_id.empty()) {
-                session_id = generate_session_id();
-                set_cookie_header = "Set-Cookie: session_id=" + session_id + "; HttpOnly; Path=/\r\n";
-                sessions[session_id] = "default_user_data";
+             // Route for logger config
+            if (strcmp(clean_path, "/admin/logger_config") == 0) {
+                handle_logger_config(client_socket, request);
+                close(client_socket);
+                free(request_copy);
+                return;
             }
-    
-            // Retrieve session data and perform file handling
-            send_authentication_required_response(client_socket, file_path, request, set_cookie_header);
-            close(client_socket);
-            free(request_copy);
         } else {
-            // Authentication failed, send unauthorized response
             send_basic_auth_prompt(client_socket);
             close(client_socket);
             free(request_copy);
+            return;
         }
-        return;
     }
 
-    // If the path is not under /admin, proceed with regular request handling
+    // Unified file serving logic
     char file_path[200];
     strcpy(file_path, SERVER_DIR);
-    strcat(file_path, clean_path);
+    strcat(file_path, clean_path); // Path Traversal Vulnerability Preserved
 
-    // Cookie management for regular paths
+    // Session Fixation Vulnerability Preserved
     std::string session_id = get_session_id_from_cookie(request);
     std::string set_cookie_header = "";
     if (session_id.empty()) {
@@ -175,11 +169,12 @@ void handle_request(int client_socket, const char* request) {
         sessions[session_id] = "default_user_data";
     }
     
-    send_authentication_required_response(client_socket, file_path, request, set_cookie_header);
+    // Serve the file
+    serve_file(client_socket, file_path, request, set_cookie_header);
+    
     close(client_socket);
     free(request_copy);
 }
-
 
 int main(int argc, char* argv[]) {
     if (argc < 3) {
@@ -188,7 +183,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    strcpy(SERVER_DIR, argv[1]);  //buffer overflow
+    strcpy(SERVER_DIR, argv[1]);  // buffer overflow
     int port = atoi(argv[2]);
 
     int server_socket, client_socket;
@@ -199,6 +194,12 @@ int main(int argc, char* argv[]) {
     if (server_socket < 0) {
         perror("Failed to create socket");
         return 1;
+    }
+
+    int opt = 1;
+    if (setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
+        perror("Failed to set SO_REUSEADDR");
+        // Continue anyway, not critical
     }
 
     server_address.sin_family = AF_INET;
@@ -218,7 +219,7 @@ int main(int argc, char* argv[]) {
     std::cout << "Server started on port " << port << std::endl;
 
     while (true) {
-        std::cout << "Waiting for request..." << std::endl;
+        // std::cout << "Waiting for request..." << std::endl;
         client_socket = accept(server_socket, (struct sockaddr*)&client_address, &client_address_len);
         if (client_socket < 0) {
             perror("Failed to accept connection");
@@ -230,7 +231,7 @@ int main(int argc, char* argv[]) {
 
         int recv_result = recv(client_socket, request, sizeof(request), 0);
         if (recv_result == 0) {
-            std::cout << "Client closed the connection." << std::endl;
+            // std::cout << "Client closed the connection." << std::endl;
             close(client_socket);
             continue;
         } else if (recv_result < 0) {

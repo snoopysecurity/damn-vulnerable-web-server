@@ -57,10 +57,10 @@ RM = /opt/homebrew/Cellar/cmake/3.28.3/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /Users/sams/damn-vulnerable-web-server
+CMAKE_SOURCE_DIR = /Users/sams/Documents/damn-vulnerable-web-server
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /Users/sams/damn-vulnerable-web-server
+CMAKE_BINARY_DIR = /Users/sams/Documents/damn-vulnerable-web-server
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -87,9 +87,9 @@ rebuild_cache/fast: rebuild_cache
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /Users/sams/damn-vulnerable-web-server/CMakeFiles /Users/sams/damn-vulnerable-web-server//CMakeFiles/progress.marks
+	$(CMAKE_COMMAND) -E cmake_progress_start /Users/sams/Documents/damn-vulnerable-web-server/CMakeFiles /Users/sams/Documents/damn-vulnerable-web-server//CMakeFiles/progress.marks
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start /Users/sams/damn-vulnerable-web-server/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /Users/sams/Documents/damn-vulnerable-web-server/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
@@ -273,6 +273,30 @@ request_logger.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/damn_vulnerable_web_server.dir/build.make CMakeFiles/damn_vulnerable_web_server.dir/request_logger.cpp.s
 .PHONY : request_logger.cpp.s
 
+response_handler.o: response_handler.cpp.o
+.PHONY : response_handler.o
+
+# target to build an object file
+response_handler.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/damn_vulnerable_web_server.dir/build.make CMakeFiles/damn_vulnerable_web_server.dir/response_handler.cpp.o
+.PHONY : response_handler.cpp.o
+
+response_handler.i: response_handler.cpp.i
+.PHONY : response_handler.i
+
+# target to preprocess a source file
+response_handler.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/damn_vulnerable_web_server.dir/build.make CMakeFiles/damn_vulnerable_web_server.dir/response_handler.cpp.i
+.PHONY : response_handler.cpp.i
+
+response_handler.s: response_handler.cpp.s
+.PHONY : response_handler.s
+
+# target to generate assembly for a file
+response_handler.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/damn_vulnerable_web_server.dir/build.make CMakeFiles/damn_vulnerable_web_server.dir/response_handler.cpp.s
+.PHONY : response_handler.cpp.s
+
 session_manager.o: session_manager.cpp.o
 .PHONY : session_manager.o
 
@@ -348,6 +372,9 @@ help:
 	@echo "... request_logger.o"
 	@echo "... request_logger.i"
 	@echo "... request_logger.s"
+	@echo "... response_handler.o"
+	@echo "... response_handler.i"
+	@echo "... response_handler.s"
 	@echo "... session_manager.o"
 	@echo "... session_manager.i"
 	@echo "... session_manager.s"

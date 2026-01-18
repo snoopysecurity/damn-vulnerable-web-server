@@ -23,4 +23,4 @@ Vulnerable Web Server written in C++
 
 
 #### Solutions
-[Solutions Wiki](https://github.com/snoopysecurity/damn-vulnerable-web-server/wiki)
+Read solutions.md
