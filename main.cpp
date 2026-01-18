@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <dirent.h>
+#include <vector>
 #include "authentication.h"
 #include "mime_type_handler.h"
 #include "request_logger.h"
@@ -15,6 +16,27 @@
 #include "session_manager.h"
 
 char SERVER_DIR[200];
+
+// --- TYPE CONFUSION VULNERABILITY STRUCTURES ---
+struct Rule {
+    virtual ~Rule() = default;
+    std::string path;
+};
+
+struct AliasRule : public Rule {
+    char target[64]; // This array overlaps with ExecRule's callback pointer
+};
+
+struct ExecRule : public Rule {
+    void (*callback)(const char*);
+};
+
+std::vector<Rule*> rules;
+
+void default_cgi_handler(const char* request) {
+    std::cout << "Executing CGI handler..." << std::endl;
+}
+// -----------------------------------------------
 
 // Renamed from send_authentication_required_response to reflect what it actually does
 void serve_file(int client_socket, const char* file_path, const char* request, const std::string& set_cookie_header = "") {
@@ -71,7 +93,17 @@ void serve_file(int client_socket, const char* file_path, const char* request, c
 
 void handle_request(int client_socket, const char* request) {
     char* request_copy = strdup(request);
+    int method_offset = 0;
     char* path_start = strstr(request_copy, "GET /");
+    if (path_start != nullptr) {
+        method_offset = 5;
+    } else {
+        path_start = strstr(request_copy, "POST /");
+        if (path_start != nullptr) {
+            method_offset = 6;
+        }
+    }
+
     if (path_start == nullptr) {
         perror("Invalid request");
         close(client_socket);
@@ -88,7 +120,7 @@ void handle_request(int client_socket, const char* request) {
     }
 
     *path_end = '\0';
-    char* path_with_query = path_start + 5;
+    char* path_with_query = path_start + method_offset;
 
     // Buffer Overflow Vulnerability Preserved
     char clean_path[200];
@@ -147,11 +179,105 @@ void handle_request(int client_socket, const char* request) {
                 free(request_copy);
                 return;
             }
+
+            // Route for system status (Heap Overflow)
+            if (strcmp(clean_path, "/admin/system_status") == 0) {
+                const char* status_pos = strstr(request, "status=");
+                if (status_pos) {
+                    status_pos += 7; // skip "status="
+                    
+                    // HEAP OVERFLOW VULNERABILITY
+                    char* status_msg = (char*)malloc(32); 
+                    int i = 0;
+                    while (status_pos[i] != '\0' && status_pos[i] != '\n' && status_pos[i] != '\r') {
+                        status_msg[i] = status_pos[i]; // No bounds check!
+                        i++;
+                    }
+                    status_msg[i] = '\0';
+                    std::string response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nSystem Status Updated.";
+                    send(client_socket, response.c_str(), response.length(), 0);
+                    free(status_msg);
+                    close(client_socket);
+                    free(request_copy);
+                    return;
+                }
+            }
+
+            // Route for file upload (Integer Overflow)
+            if (strcmp(clean_path, "/admin/upload_file") == 0) {
+                std::string content_length_str = extract_header_value(request, "Content-Length:");
+                if (!content_length_str.empty()) {
+                    unsigned int content_len = (unsigned int)strtoul(content_length_str.c_str(), nullptr, 10);
+                    unsigned int buffer_size = content_len + 64; 
+                    char* file_buffer = (char*)malloc(buffer_size);
+                    if (file_buffer) {
+                        recv(client_socket, file_buffer, content_len, 0);
+                        std::string response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nUpload processed.";
+                        send(client_socket, response.c_str(), response.length(), 0);
+                        free(file_buffer);
+                    }
+                    close(client_socket);
+                    free(request_copy);
+                    return;
+                }
+            }
+
+            // Route for adding rules (Type Confusion Setup)
+            if (strcmp(clean_path, "/admin/add_rule") == 0) {
+                auto params = extract_query_parameters(request);
+                std::string type = params["type"];
+                std::string path = params["path"];
+                std::string target = params["target"]; // Can be alias target or just text
+
+                if (type == "alias") {
+                    AliasRule* rule = new AliasRule();
+                    rule->path = path;
+                    strncpy(rule->target, target.c_str(), 63);
+                    rules.push_back(rule);
+                } else if (type == "exec") {
+                    ExecRule* rule = new ExecRule();
+                    rule->path = path;
+                    rule->callback = default_cgi_handler;
+                    rules.push_back(rule);
+                }
+
+                std::string response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nRule added.";
+                send(client_socket, response.c_str(), response.length(), 0);
+                close(client_socket);
+                free(request_copy);
+                return;
+            }
+
         } else {
             send_basic_auth_prompt(client_socket);
             close(client_socket);
             free(request_copy);
             return;
+        }
+    }
+
+    // TYPE CONFUSION VULNERABILITY: Rule Engine Dispatcher
+    // If the path starts with /cgi-bin/, we assume it's an ExecRule.
+    if (strncmp(clean_path, "/cgi-bin/", 9) == 0) {
+        for (Rule* rule : rules) {
+            if (rule->path == clean_path) {
+                // VULNERABILITY: Blind static_cast to ExecRule
+                // If this is actually an AliasRule, 'exec->callback' overlaps with 'alias->target'
+                ExecRule* exec = static_cast<ExecRule*>(rule);
+                
+                std::cout << "Executing rule for " << clean_path << std::endl;
+                if (exec->callback) {
+                     // CALLING CONTROLLED POINTER!
+                     exec->callback(request);
+                }
+
+                std::string response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nExecuted.";
+                send(client_socket, response.c_str(), response.length(), 0);
+                
+                close(client_socket);
+                free(request_copy);
+                return;
+            }
         }
     }
 

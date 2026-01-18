@@ -1,0 +1,6 @@
+Server started on port 8085
+Request Path: /admin/add_rule
+Authorization header (raw): [Basic YWRtaW46YWRtaW4=]
+Base64 decoded: [admin:admin]
+Request Path: /cgi-bin/exploit
+Executing rule for /cgi-bin/exploit
