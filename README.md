@@ -6,10 +6,23 @@ Vulnerable Web Server written in C++
 
 #### How to build and run Damn Vulnerable Web Server
 
-1) mkdir build && cd build
-2) cmake ..
-3) make
-4) ./damn_vulnerable_web_server ../serve/ 8081
+**Standard Build (Vulnerable)**
+This builds the server with security features disabled (ASLR/PIE disabled where possible) to facilitate exploit testing.
+1) `mkdir build && cd build`
+2) `cmake -DENABLE_ASLR=OFF ..`
+3) `make`
+4) `./damn_vulnerable_web_server ../serve/ 8081`
+
+**Secure Build (ASLR Enabled)**
+This builds the server with ASLR and Stack Protectors enabled.
+1) `mkdir build && cd build`
+2) `cmake -DENABLE_ASLR=ON ..`
+3) `make`
+4) `./damn_vulnerable_web_server ../serve/ 8081`
+
+**Testing ASLR**
+You can verify the ASLR status of the build using the provided test script:
+`python3 ../tests/test_aslr.py`
 
 
 

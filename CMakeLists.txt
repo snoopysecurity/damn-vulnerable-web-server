@@ -20,11 +20,25 @@ add_executable(damn_vulnerable_web_server
     response_handler.cpp
 )
 
+option(ENABLE_ASLR "Enable Address Space Layout Randomization (ASLR)" OFF)
+
 # Only apply flags after target is defined
-if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    target_compile_options(damn_vulnerable_web_server PRIVATE -fno-stack-protector -z execstack -no-pie)
-elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-    target_compile_options(damn_vulnerable_web_server PRIVATE -fno-stack-protector)
+if(ENABLE_ASLR)
+    message(STATUS "ASLR Enabled")
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        target_compile_options(damn_vulnerable_web_server PRIVATE -fstack-protector)
+    elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+        target_compile_options(damn_vulnerable_web_server PRIVATE -fstack-protector)
+    endif()
+else()
+    message(STATUS "ASLR Disabled")
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        target_compile_options(damn_vulnerable_web_server PRIVATE -fno-stack-protector -z execstack -no-pie)
+        target_link_options(damn_vulnerable_web_server PRIVATE -no-pie)
+    elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+        target_compile_options(damn_vulnerable_web_server PRIVATE -fno-stack-protector)
+        target_link_options(damn_vulnerable_web_server PRIVATE "LINKER:-no_pie")
+    endif()
 endif()
 
 target_include_directories(damn_vulnerable_web_server PRIVATE ${OPENSSL_INCLUDE_DIR})
