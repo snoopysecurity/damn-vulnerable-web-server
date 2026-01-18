@@ -1,5 +1,0 @@
-Server started on port 8083
-Request Path: /admin/system_status
-Authorization header (raw): [Basic YWRtaW46YWRtaW4=]
-Base64 decoded: [admin:admin]
-Request Path: /

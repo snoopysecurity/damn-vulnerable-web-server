@@ -20,6 +20,10 @@ Vulnerable Web Server written in C++
 * Command Injection
 * Session Fixation
 * Insecure Temporary File Creation Race Condition
+* Use-After-Free (Heap)
+* Heap Buffer Overflow
+* Integer Overflow
+* Type Confusion
 
 
 #### Solutions
