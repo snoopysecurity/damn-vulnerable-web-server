@@ -11,6 +11,7 @@
 
 #include "request_logger.h"
 #include "error_handling.h"
+#include "net_compat.h"
 
 void send_error_response(int client_socket, int status_code, const char* status_text, const char* requested_page) {
     // Construct the response header
@@ -22,13 +23,13 @@ void send_error_response(int client_socket, int status_code, const char* status_
     snprintf(error_message, sizeof(error_message), "<html><body><h1>Error %d: %s</h1><p>Requested page: %s</p></body></html>", status_code, status_text, requested_page);
 
     // Send the response header
-    if (send(client_socket, response_header, strlen(response_header), 0) < 0) {
+    if (send(client_socket, response_header, strlen(response_header), DVWS_SEND_FLAGS) < 0) {
         perror("Failed to send response header");
         return;
     }
 
     // Send the error message
-    if (send(client_socket, error_message, strlen(error_message), 0) < 0) {
+    if (send(client_socket, error_message, strlen(error_message), DVWS_SEND_FLAGS) < 0) {
         perror("Failed to send error message");
         return;
     }

@@ -1,0 +1,58 @@
+# AFL++ / libFuzzer dictionary for the DVWS HTTP parser and routes.
+# Format: token names optional, values quoted, one per line.
+
+# --- HTTP verbs & syntax ---
+verb_get       = "GET "
+verb_post      = "POST "
+http_ver       = " HTTP/1.1"
+crlf           = "\x0d\x0a"
+double_crlf    = "\x0d\x0a\x0d\x0a"
+sp             = " "
+
+# --- Common headers ---
+host           = "Host: "
+authz          = "Authorization: "
+basic          = "Basic "
+admin_admin    = "YWRtaW46YWRtaW4="
+content_length = "Content-Length: "
+content_type   = "Content-Type: "
+cookie         = "Cookie: "
+connection     = "Connection: "
+session_id     = "session_id="
+
+# --- Routes ---
+r_root            = "/"
+r_admin           = "/admin/"
+r_system_status   = "/admin/system_status"
+r_upload_file     = "/admin/upload_file"
+r_logger_config   = "/admin/logger_config"
+r_add_rule        = "/admin/add_rule"
+r_whoami          = "/whoami"
+r_status          = "/status"
+r_logs            = "/logs"
+r_cgi             = "/cgi-bin/"
+r_index           = "/index.html"
+r_php             = "/echo.php"
+
+# --- Query parameter keys ---
+q_status  = "status="
+q_filter  = "filter="
+q_action  = "action="
+q_format  = "format="
+q_type    = "type="
+q_path    = "path="
+q_target  = "target="
+v_set     = "set"
+v_reset   = "reset"
+v_alias   = "alias"
+v_exec    = "exec"
+
+# --- Interesting payload fragments ---
+long_cl     = "4294967232"
+dotdot      = "../"
+percent_p   = "%p"
+percent_n   = "%n"
+pct_null    = "%00"
+shell_semi  = ";"
+shell_pipe  = "|"
+shell_dtick = "`"

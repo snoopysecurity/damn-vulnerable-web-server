@@ -1,0 +1,27 @@
+# One-command CTF instance.
+#
+#   docker compose up --build
+#
+# Then browse http://localhost:8081 and start with CHALLENGES.md.
+services:
+  dvws:
+    build:
+      context: .
+      dockerfile: Dockerfile.serve
+    image: dvws-serve:latest
+    container_name: dvws-serve
+    ports:
+      - "8081:8081"
+    read_only: true
+    tmpfs:
+      # PHP temp-file challenge (CH-06) requires a writable /tmp.
+      - /tmp:size=32m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    # These vulnerabilities are the whole point of this image. Do not
+    # expose it beyond a trusted lab network.
+    labels:
+      dvws.warning: "intentionally-vulnerable-do-not-expose-publicly"

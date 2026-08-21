@@ -3,6 +3,7 @@
 #include <string>
 #include <unistd.h>
 #include <sys/socket.h>
+#include "net_compat.h"
 
 // Function to send a generic HTTP response
 void send_response(int client_socket, const std::string& status_code, 
@@ -16,8 +17,8 @@ void send_response(int client_socket, const std::string& status_code,
     response_header += "\r\n";  // End of headers
 
     // Send the header and body
-    send(client_socket, response_header.c_str(), response_header.length(), 0);
-    send(client_socket, body.c_str(), body.length(), 0);
+    send(client_socket, response_header.c_str(), response_header.length(), DVWS_SEND_FLAGS);
+    send(client_socket, body.c_str(), body.length(), DVWS_SEND_FLAGS);
 }
 
 // Function to send a 200 OK response

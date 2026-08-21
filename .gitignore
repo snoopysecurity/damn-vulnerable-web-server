@@ -8,3 +8,7 @@ CMakeFiles/
 .dccache
 .vscode/
 build/
+build-*/
+fuzz_output/
+__pycache__/
+*.pyc

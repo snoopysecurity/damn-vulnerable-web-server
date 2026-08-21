@@ -1,0 +1,60 @@
+name: exploit-regression
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  regression:
+    strategy:
+      fail-fast: false
+      matrix:
+        build:
+          - name: vulnerable
+            flags: "-DENABLE_HARDENING=OFF -DENABLE_ASAN=OFF"
+            run_asan: false
+          - name: asan
+            flags: "-DENABLE_HARDENING=OFF -DENABLE_ASAN=ON"
+            run_asan: true
+          - name: hardened
+            flags: "-DENABLE_HARDENING=ON  -DENABLE_ASAN=OFF"
+            run_asan: false
+
+    runs-on: ubuntu-latest
+    name: ${{ matrix.build.name }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake libssl-dev php-cli
+
+      - name: Configure
+        run: cmake -S . -B build ${{ matrix.build.flags }}
+
+      - name: Build
+        run: cmake --build build -j
+
+      - name: Verify vulnerable pattern still present in source
+        # Cheap smoke test that no one accidentally removed a challenge.
+        run: |
+          set -e
+          grep -qE 'strcpy\(g_config\.server_dir, argv\[1\]\)' main.cpp
+          grep -q 'strcpy(out.clean_path, path_with_query)'      http/request.cpp
+          grep -q 'popen("sh -c'                                 request_logger.cpp
+          grep -q 'fprintf(log_file, value.c_str())'             request_logger.cpp
+          grep -q 'static_cast<ExecRule\*>(rule)'                handlers/cgi.cpp
+          grep -q 'free(current_log_format);'                    request_logger.cpp
+
+      - name: Run exploit regression suite
+        run: |
+          if [ "${{ matrix.build.run_asan }}" = "true" ]; then
+              python3 tests/exploit/run_all.py
+          else
+              python3 tests/exploit/run_all.py
+          fi

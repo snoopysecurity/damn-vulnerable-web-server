@@ -4,14 +4,61 @@
 #include <iostream>
 #include "authentication.h" // Assuming extract_query_parameters is defined here
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <cstring>       // for strerror()
 #include <sstream>       // for stringstream
 #include "utils.h"
 #include "request_logger.h"
+#include "net_compat.h"
 #include <cstdlib> // for malloc/free
 
 // Global pointer for UAF vulnerability
 LogFormat* current_log_format = nullptr;
+
+// -------------------------------------------------------------------------
+// Observability sidecar
+//
+// The primary /tmp/server.log write below intentionally uses the caller's
+// value as a printf format string (CH-03, CWE-134). To give operators a
+// safe, out-of-band view of what's happening, we *also* emit a
+// format-safe line to stderr and rotate the log file when it grows past
+// a threshold. Neither of these mitigates or interferes with the
+// intentional vulnerability.
+// -------------------------------------------------------------------------
+namespace {
+
+constexpr const char* kLogPath = "/tmp/server.log";
+constexpr off_t kMaxLogBytes  = 1 * 1024 * 1024;   // 1 MiB
+constexpr int   kRotationKeep = 3;                 // .1 .. .3
+
+void rotate_log_if_needed() {
+    struct stat st{};
+    if (stat(kLogPath, &st) != 0) return;
+    if (st.st_size < kMaxLogBytes) return;
+
+    // Shift .N-1 -> .N, drop the oldest.
+    char from[64], to[64];
+    snprintf(to, sizeof(to), "%s.%d", kLogPath, kRotationKeep);
+    remove(to);
+    for (int i = kRotationKeep - 1; i >= 1; --i) {
+        snprintf(from, sizeof(from), "%s.%d", kLogPath, i);
+        snprintf(to,   sizeof(to),   "%s.%d", kLogPath, i + 1);
+        rename(from, to);
+    }
+    snprintf(to, sizeof(to), "%s.1", kLogPath);
+    rename(kLogPath, to);
+}
+
+void safe_stderr_log(const char* timestamp,
+                     const std::map<std::string, std::string>& params) {
+    // Format-safe: %s + argument, never a user-controlled format string.
+    for (const auto& kv : params) {
+        fprintf(stderr, "[%s] req param key=%s value=%s\n",
+                timestamp, kv.first.c_str(), kv.second.c_str());
+    }
+}
+
+}  // namespace
 
 void default_custom_logger(const char* timestamp, const char* message) {
     FILE* log_file = fopen("/tmp/server.log", "a");
@@ -40,12 +87,19 @@ void log_request_response(const std::string& request, const std::string& respons
     }
 
     // Standard Logging (if no custom format)
-    
+
     // Extract query parameters from the request
     std::map<std::string, std::string> query_params = extract_query_parameters(request);
 
+    // Sidecar #1: format-safe stderr line for operators. Kept separate
+    // from the on-disk log below so nothing here changes the primitive.
+    safe_stderr_log(timestamp, query_params);
+
+    // Sidecar #2: rotate the file if it has grown past kMaxLogBytes.
+    rotate_log_if_needed();
+
     // Log to file
-    FILE* log_file = fopen("/tmp/server.log", "a");
+    FILE* log_file = fopen(kLogPath, "a");
     if (!log_file) {
         std::cerr << "Failed to open log file" << std::endl;
         return;
@@ -82,7 +136,7 @@ void handle_log_viewer(int client_socket, const std::string& request) {
     FILE* pipe = popen(command.c_str(), "r");
     if (!pipe) {
         std::string error_msg = "HTTP/1.1 500 Internal Server Error\r\n\r\nFailed to read logs.\n";
-        send(client_socket, error_msg.c_str(), error_msg.length(), 0);
+        send(client_socket, error_msg.c_str(), error_msg.length(), DVWS_SEND_FLAGS);
         return;
     }
 
@@ -102,7 +156,7 @@ void handle_log_viewer(int client_socket, const std::string& request) {
         response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\n" + result;
     }
 
-    send(client_socket, response.c_str(), response.length(), 0);
+    send(client_socket, response.c_str(), response.length(), DVWS_SEND_FLAGS);
 }
 
 // Handler for Logger Configuration (The UAF Trigger)
@@ -138,5 +192,5 @@ void handle_logger_config(int client_socket, const std::string& request) {
     }
 
     std::string response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\n" + response_body;
-    send(client_socket, response.c_str(), response.length(), 0);
+    send(client_socket, response.c_str(), response.length(), DVWS_SEND_FLAGS);
 }

@@ -14,6 +14,7 @@
 #include "base64.h"
 #include "authentication.h"
 #include "utils.h"
+#include "net_compat.h"
 
 // Function to check if the provided username and password are valid
 int authenticate(const std::string& username, const std::string& password) {
@@ -31,7 +32,7 @@ void send_basic_auth_prompt(int client_socket) {
                          "Custom-Header: SomeValue\r\n"
                          "\r\n";
 
-    if (send(client_socket, header, strlen(header), 0) < 0) {
+    if (send(client_socket, header, strlen(header), DVWS_SEND_FLAGS) < 0) {
         perror("Failed to send response header");
         return;
     }
@@ -45,15 +46,15 @@ void handle_authentication(int client_socket, const std::string& username) {
     char* leaked_ptr = const_cast<char*>(username.c_str());  // Type confusion
 
     const char* preamble = "Leaked internal username object bytes:\n";
-    send(client_socket, preamble, strlen(preamble), 0);
-    
+    send(client_socket, preamble, strlen(preamble), DVWS_SEND_FLAGS);
+
     // Leak internal bytes of the std::string username object (misinterpreted as a char* pointer)
-    send(client_socket, leaked_ptr, 64, 0);  // Potential data leakage (depending on implementation)
+    send(client_socket, leaked_ptr, 64, DVWS_SEND_FLAGS);  // Potential data leakage (depending on implementation)
 
     // Further operations or handling after potential type confusion
     std::cout << "Extracted Username: " << username << std::endl;
     // Additional processing logic...
     const char* ok = "\nHTTP/1.1 200 OK\r\n\r\nWelcome!";
-    send(client_socket, ok, strlen(ok), 0);
+    send(client_socket, ok, strlen(ok), DVWS_SEND_FLAGS);
 }
 

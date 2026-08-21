@@ -132,7 +132,15 @@ bool extract_username_password(const std::string &authorization_header, std::str
 
 
 const char* get_php_interpreter_path() {
-    static char path[256];  // static ensures it persists after function returns
+    // Resolved once and reused: `which php` used to be re-invoked on every
+    // PHP request, which was gratuitously slow and added an unnecessary
+    // fork/exec to the request path.
+    static char path[256];
+    static bool resolved = false;
+    static bool ok = false;
+    if (resolved) return ok ? path : NULL;
+    resolved = true;
+
     FILE* fp = popen("which php", "r");
     if (fp == NULL) {
         perror("[ERROR] popen failed");
@@ -151,5 +159,6 @@ const char* get_php_interpreter_path() {
         path[len - 1] = '\0';
     }
 
+    ok = true;
     return path;
 }

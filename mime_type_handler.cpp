@@ -2,6 +2,7 @@
 
 #include "mime_type_handler.h"
 #include "utils.h"
+#include "net_compat.h"
 #include <cstring>
 #include <cstdlib>
 #include <cstdio>
@@ -75,7 +76,7 @@ void handle_php_file(FILE* file, int* client_socket, const char* response_header
         return;
     }
 
-    if (send(*client_socket, response_header, strlen(response_header), 0) < 0) {
+    if (send(*client_socket, response_header, strlen(response_header), DVWS_SEND_FLAGS) < 0) {
         perror("Failed to send response header");
         fclose(file);
         return;
@@ -84,7 +85,7 @@ void handle_php_file(FILE* file, int* client_socket, const char* response_header
     char php_buffer[1024];
     size_t php_bytes_read;
     while ((php_bytes_read = fread(php_buffer, 1, sizeof(php_buffer), php_output)) > 0) {
-        if (send(*client_socket, php_buffer, php_bytes_read, 0) < 0) {
+        if (send(*client_socket, php_buffer, php_bytes_read, DVWS_SEND_FLAGS) < 0) {
             perror("Failed to send PHP output");
             return;
         }
