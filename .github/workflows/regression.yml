@@ -46,7 +46,7 @@ jobs:
           set -e
           grep -qE 'strcpy\(g_config\.server_dir, argv\[1\]\)' main.cpp
           grep -q 'strcpy(out.clean_path, path_with_query)'      http/request.cpp
-          grep -q 'popen("sh -c'                                 request_logger.cpp
+          grep -q '"sh -c \\"grep "'                             request_logger.cpp
           grep -q 'fprintf(log_file, value.c_str())'             request_logger.cpp
           grep -q 'static_cast<ExecRule\*>(rule)'                handlers/cgi.cpp
           grep -q 'free(current_log_format);'                    request_logger.cpp
