@@ -143,7 +143,11 @@ int main(int argc, char* argv[]) {
         pool.submit([client_socket] {
             char request[MAX_REQUEST_SIZE];
             memset(request, 0, sizeof(request));
-            int recv_result = recv(client_socket, request, sizeof(request), 0);
+            // Leave one byte for the trailing NUL so parse()'s C-string
+            // operations don't walk off the buffer when the client sends
+            // >= MAX_REQUEST_SIZE bytes. This preserves the intentional
+            // 1024-byte recv ceiling that test_recv_truncation asserts.
+            int recv_result = recv(client_socket, request, sizeof(request) - 1, 0);
             if (recv_result <= 0) {
                 close(client_socket);
                 return;
