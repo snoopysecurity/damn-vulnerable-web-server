@@ -58,8 +58,8 @@ function h($s) { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
         <a class="here" href="/admin/">Overview</a>
         <a href="/admin/system_status">System status</a>
         <a href="/admin/upload_file">Upload file</a>
-        <a href="/admin/add_rule">CGI rules</a>
-        <a href="/admin/logger_config">Logger config</a>
+        <a href="/admin/add_rule">Route rules</a>
+        <a href="/admin/logging">Logging output</a>
         <h4>Utilities</h4>
         <a href="/logs">Log viewer</a>
         <a href="/whoami">Whoami</a>
@@ -117,32 +117,42 @@ function h($s) { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 
         <section class="panel">
           <div class="card">
-            <h3>CGI rules engine</h3>
+            <h3>Route rules engine</h3>
             <p>Register a dispatch rule under <code>/cgi-bin/</code>.
-              Calls <code>GET /admin/add_rule?type=...&amp;path=...&amp;target=...</code></p>
+              Calls <code>GET /admin/add_rule?type=...&amp;path=...&amp;directory=/executable=...</code></p>
             <form class="inline" method="get" action="/admin/add_rule">
               <select name="type">
-                <option value="alias">alias</option>
-                <option value="exec">exec</option>
+                <option value="static">static</option>
+                <option value="cgi">cgi</option>
               </select>
               <input type="text" name="path" placeholder="/cgi-bin/rule-path" size="24" required>
-              <input type="text" name="target" placeholder="target" size="18" required>
+              <input type="text" name="directory" placeholder="directory" size="18">
+              <input type="text" name="executable" placeholder="executable" size="18">
               <button type="submit">Add rule</button>
+            </form>
+            <p class="note">Retag an existing rule with
+              <code>GET /admin/update_rule?path=...&amp;type=...</code></p>
+            <form class="inline" method="get" action="/admin/update_rule">
+              <input type="text" name="path" placeholder="/cgi-bin/rule-path" size="24" required>
+              <select name="type">
+                <option value="static">static</option>
+                <option value="cgi">cgi</option>
+              </select>
+              <button type="submit">Update rule</button>
             </form>
           </div>
         </section>
 
         <section class="panel">
           <div class="card">
-            <h3>Request logger</h3>
-            <p>Set or reset the access-log format. Calls
-              <code>GET /admin/logger_config?action=...</code></p>
-            <form class="inline" method="get" action="/admin/logger_config">
-              <select name="action">
-                <option value="set">set</option>
-                <option value="reset">reset</option>
+            <h3>Logging output</h3>
+            <p>Redirect the access log. Calls
+              <code>GET /admin/logging?output=...</code></p>
+            <form class="inline" method="get" action="/admin/logging">
+              <select name="output">
+                <option value="file">file</option>
+                <option value="syslog">syslog</option>
               </select>
-              <input type="text" name="format" placeholder="log format" size="28">
               <button type="submit">Apply</button>
             </form>
             <p class="note">Then read the result in the <a href="/logs">log viewer</a>.</p>

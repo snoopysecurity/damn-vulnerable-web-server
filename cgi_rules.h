@@ -1,32 +1,48 @@
 // cgi_rules.h
 //
-// Backing store for the type-confusion challenge. AliasRule::target
-// intentionally aliases ExecRule::callback in memory.
+// Backing store for the type-confusion challenge. Route objects form a
+// normal C++ hierarchy; separately, the router keeps a metadata map
+// (path -> RouteType) that is *supposed* to mirror each object's actual
+// class. The two sources of truth can drift apart: /admin/update_rule
+// rewrites the metadata entry without reconstructing the object.
 #ifndef DVWS_CGI_RULES_H
 #define DVWS_CGI_RULES_H
 
+#include <map>
 #include <string>
 #include <vector>
 
-struct Rule {
-    virtual ~Rule() = default;
+// Router-side metadata. Duplicates the information already encoded in
+// each object's C++ class -- kept for O(1) dispatch decisions.
+enum class RouteType {
+    STATIC,
+    CGI,
+};
+
+class Route {
+public:
+    virtual ~Route() = default;
     std::string path;
 };
 
-struct AliasRule : public Rule {
-    // Overlaps with ExecRule::callback under a blind static_cast.
-    char target[64];
+// Serves files from a fixed directory.
+class StaticRoute : public Route {
+public:
+    std::string directory;
 };
 
-struct ExecRule : public Rule {
-    void (*callback)(const char*);
+// Runs an external executable per request.
+class CgiRoute : public Route {
+public:
+    std::string executable;
+
+    // Spawn the executable and stream its output back to the client.
+    void execute(int client_socket) const;
 };
 
-// Default CGI handler used when a rule is created via ?type=exec.
-void default_cgi_handler(const char* request);
-
-// Global registry (kept as a function-local static so we do not need
+// Global registries (kept as function-local statics so we do not need
 // to expose another loose-globals compilation unit).
-std::vector<Rule*>& cgi_rules();
+std::vector<Route*>& cgi_rules();
+std::map<std::string, RouteType>& route_types();
 
 #endif

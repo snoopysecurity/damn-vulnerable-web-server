@@ -30,6 +30,23 @@ std::string url_decode(const std::string& str) {
     return decoded_str;
 }
 
+// Upper-bound estimate used to size decode buffers before a decode
+// pass. Assumes every '%' begins a well-formed %XX escape; callers that
+// decode with different rules for malformed escapes must not rely on
+// this number (see /admin/system_status, challenge 09).
+size_t estimate_decoded_length(const char* s) {
+    size_t n = 0;
+    for (size_t i = 0; s[i] != '\0' && s[i] != '\n' && s[i] != '\r'; i++) {
+        if (s[i] == '%') {
+            i += 2;  // the two assumed hex digits
+            n += 1;
+        } else {
+            n += 1;
+        }
+    }
+    return n;
+}
+
 // Extract a header's value from the HTTP request string
 std::string extract_header_value(const std::string &request, const std::string &header_name)
 {

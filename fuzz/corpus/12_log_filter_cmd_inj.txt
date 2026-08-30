@@ -1,3 +1,3 @@
-GET /logs?filter=;id HTTP/1.1
+GET /logs?search=";id;" HTTP/1.1
 Host: 127.0.0.1
 

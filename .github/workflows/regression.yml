@@ -46,10 +46,18 @@ jobs:
           set -e
           grep -qE 'strcpy\(g_config\.server_dir, argv\[1\]\)' main.cpp
           grep -q 'strcpy(out.clean_path, path_with_query)'      http/request.cpp
-          grep -q '"sh -c \\"grep "'                             request_logger.cpp
-          grep -q 'fprintf(log_file, value.c_str())'             request_logger.cpp
-          grep -q 'static_cast<ExecRule\*>(rule)'                handlers/cgi.cpp
-          grep -q 'free(current_log_format);'                    request_logger.cpp
+          grep -q 'joined.rfind(docroot, 0) != 0'                handlers/static_files.cpp
+          grep -q 'shell_escape(url_decode(search))'             request_logger.cpp
+          grep -q 'fprintf(log_file, field.c_str())'             request_logger.cpp
+          grep -q 'set_session_data(session_id, "authenticated:admin")' router.cpp
+          grep -q 'SESSION_%08x'                                 session_manager.cpp
+          grep -q 'std::string(response, sizeof(response))'      handlers/admin.cpp
+          grep -q 'entry.sink->write(entry.record)'              logging_sink.cpp
+          grep -q 'delete old;'                                  logging_sink.cpp
+          grep -q 'estimate_decoded_length(status_pos)'          handlers/admin.cpp
+          grep -q 'sizeof(UploadHeader) + content_len + filename_len' handlers/admin.cpp
+          grep -q 'route_types()\[path\] = new_type;'            handlers/admin.cpp
+          grep -q 'static_cast<CgiRoute\*>(rule)'                handlers/cgi.cpp
 
       - name: Run exploit regression suite
         run: |

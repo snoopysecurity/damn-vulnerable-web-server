@@ -21,6 +21,7 @@ add_executable(damn_vulnerable_web_server
     handlers/status.cpp
     mime_type_handler.cpp
     request_logger.cpp
+    logging_sink.cpp
     error_handling.cpp
     authentication.cpp
     base64.cpp
@@ -234,6 +235,7 @@ if(ENABLE_LIBFUZZER)
         handlers/status.cpp
         mime_type_handler.cpp
         request_logger.cpp
+        logging_sink.cpp
         error_handling.cpp
         authentication.cpp
         base64.cpp

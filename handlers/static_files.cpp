@@ -13,6 +13,7 @@
 #include <cstdio>
 #include <cstring>
 #include <dirent.h>
+#include <filesystem>
 #include <sstream>
 #include <string>
 #include <sys/socket.h>
@@ -112,10 +113,8 @@ static void serve_file(int client_socket, const char* file_path,
     std::string response_header;
 
     // DirectoryIndex, Apache/nginx-style: when the mapped path is a
-    // directory, serve its index document instead. This is new plumbing
-    // around the vulnerable strcat() in serve_static(); the traversal
-    // primitive itself is untouched.
-    char resolved_path[264];
+    // directory, serve its index document instead.
+    char resolved_path[512];
     snprintf(resolved_path, sizeof(resolved_path), "%s", file_path);
     struct stat path_stat{};
     if (stat(resolved_path, &path_stat) == 0 && S_ISDIR(path_stat.st_mode)) {
@@ -124,7 +123,7 @@ static void serve_file(int client_socket, const char* file_path,
         for (const char* doc : kIndexDocs) {
             size_t len = strlen(resolved_path);
             const char* slash = (len > 0 && resolved_path[len - 1] != '/') ? "/" : "";
-            char candidate[300];
+            char candidate[600];
             snprintf(candidate, sizeof(candidate), "%s%s%s", resolved_path, slash, doc);
             if (stat(candidate, &path_stat) == 0 && S_ISREG(path_stat.st_mode)) {
                 snprintf(resolved_path, sizeof(resolved_path), "%s", candidate);
@@ -260,21 +259,43 @@ static void serve_file(int client_socket, const char* file_path,
 
 void serve_static(int client_socket, const HttpRequest& req,
                   const std::string& set_cookie_header) {
-    // --- INTENTIONAL VULNERABILITY (CWE-22, path traversal) ---
-    char file_path[200];
-    strcpy(file_path, g_config.server_dir);
-    strcat(file_path, req.clean_path);
+    // Map the request path into the document root and resolve it.
+    std::string docroot(g_config.server_dir);
 
     // The legacy parser yields an empty clean_path for "GET /" (the byte
     // right after "GET /" is the space that terminates the path). Map the
     // empty path onto the docroot with its trailing slash so the root URL
     // serves the directory index instead of bouncing to itself.
+    std::string joined = docroot + req.clean_path;
     if (req.clean_path[0] == '\0') {
-        size_t n = strlen(file_path);
-        if (n + 1 < sizeof(file_path)) {
-            file_path[n] = '/';
-            file_path[n + 1] = '\0';
-        }
+        joined += "/";
+    }
+
+    // Requests that map outside the document root are rejected.
+    if (joined.rfind(docroot, 0) != 0) {
+        http::send_status(client_socket, "403 Forbidden", "text/html; charset=utf-8",
+                          http::error_page(403, "Forbidden",
+                                           "The requested path is outside the document root."),
+                          set_cookie_header, req.method == "HEAD");
+        return;
+    }
+
+    // Resolve `..` segments and symlinks; a nonexistent tail is kept
+    // lexically and surfaces as the 404 case below.
+    std::error_code ec;
+    std::string file_path =
+        std::filesystem::weakly_canonical(std::filesystem::path(joined), ec).string();
+    if (ec) {
+        http::send_status(client_socket, "404 Not Found", "text/html; charset=utf-8",
+                          http::error_page(404, "Not Found",
+                                           "The requested path could not be resolved."),
+                          set_cookie_header, req.method == "HEAD");
+        return;
+    }
+    // weakly_canonical() drops a trailing separator; restore it.
+    if (!joined.empty() && !file_path.empty() &&
+        joined.back() == '/' && file_path.back() != '/') {
+        file_path += "/";
     }
 
     bool head_only = (req.method == "HEAD");
@@ -285,9 +306,9 @@ void serve_static(int client_socket, const HttpRequest& req,
     // prefix check. Only printable, space-free paths are redirectable so
     // the Location header can never carry injected CR/LF.
     struct stat path_stat{};
-    size_t dir_len = strlen(file_path);
+    size_t dir_len = file_path.length();
     if (dir_len > 0 && file_path[dir_len - 1] != '/' &&
-        stat(file_path, &path_stat) == 0 && S_ISDIR(path_stat.st_mode)) {
+        stat(file_path.c_str(), &path_stat) == 0 && S_ISDIR(path_stat.st_mode)) {
         bool redirectable = true;
         for (const char* p = req.clean_path; *p != '\0'; ++p) {
             unsigned char c = (unsigned char)*p;
@@ -308,7 +329,7 @@ void serve_static(int client_socket, const HttpRequest& req,
         }
     }
 
-    serve_file(client_socket, file_path, req.clean_path, req.raw,
+    serve_file(client_socket, file_path.c_str(), req.clean_path, req.raw,
                set_cookie_header, head_only);
 }
 

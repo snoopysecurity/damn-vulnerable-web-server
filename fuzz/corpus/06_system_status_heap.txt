@@ -2,6 +2,6 @@ POST /admin/system_status HTTP/1.1
 Host: 127.0.0.1
 Authorization: Basic YWRtaW46YWRtaW4=
 Content-Type: application/x-www-form-urlencoded
-Content-Length: 11
+Content-Length: 18
 
-status=hello
+status=%GZ%GZhello

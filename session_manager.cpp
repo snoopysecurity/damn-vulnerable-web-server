@@ -4,6 +4,7 @@
 #include <string>
 #include <ctime>
 #include <cstdlib>
+#include <cstdio>
 #include <cstring>
 #include <unistd.h>
 #include <sys/socket.h>
@@ -11,11 +12,14 @@
 // Global map to store session data (for simplicity)
 std::unordered_map<std::string, std::string> sessions;  // session_id -> user_data
 
-// Function to generate a unique session ID (using random numbers)
+// Generate a session ID: PRNG output mixed with the process ID.
 std::string generate_session_id() {
     srand(time(0));
-    std::string session_id = "SESSION_" + std::to_string(rand());
-    return session_id;
+    uint32_t a = (uint32_t)rand();
+    uint32_t b = (uint32_t)getpid();
+    char buf[32];
+    snprintf(buf, sizeof(buf), "SESSION_%08x", a ^ b);
+    return std::string(buf);
 }
 
 void set_session_cookie(int client_socket, const std::string& session_id) {

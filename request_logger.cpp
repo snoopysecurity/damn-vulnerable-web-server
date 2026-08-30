@@ -2,7 +2,6 @@
 #include <ctime>
 #include <fstream>
 #include <iostream>
-#include "authentication.h" // Assuming extract_query_parameters is defined here
 #include "http/response.h"
 #include <sys/socket.h>
 #include <sys/stat.h>
@@ -10,21 +9,15 @@
 #include <sstream>       // for stringstream
 #include "utils.h"
 #include "request_logger.h"
+#include "logging_sink.h"
 #include "net_compat.h"
-#include <cstdlib> // for malloc/free
-
-// Global pointer for UAF vulnerability
-LogFormat* current_log_format = nullptr;
 
 // -------------------------------------------------------------------------
 // Observability sidecar
 //
-// The primary /tmp/server.log write below intentionally uses the caller's
-// value as a printf format string (CH-03, CWE-134). To give operators a
-// safe, out-of-band view of what's happening, we *also* emit a
-// format-safe line to stderr and rotate the log file when it grows past
-// a threshold. Neither of these mitigates or interferes with the
-// intentional vulnerability.
+// Besides the on-disk access log, a format-safe summary line is emitted
+// to stderr for operators, and the log file is rotated when it grows
+// past a threshold.
 // -------------------------------------------------------------------------
 namespace {
 
@@ -59,15 +52,16 @@ void safe_stderr_log(const char* timestamp,
     }
 }
 
-}  // namespace
-
-void default_custom_logger(const char* timestamp, const char* message) {
-    FILE* log_file = fopen("/tmp/server.log", "a");
-    if (log_file) {
-        fprintf(log_file, "[CUSTOM] [%s] %s\n", timestamp, message);
-        fclose(log_file);
-    }
+// Append a per-request custom field (the client-supplied
+// X-Forwarded-For address) to the access log.
+void write_custom_field(FILE* log_file, const char* timestamp,
+                        const std::string& field) {
+    fprintf(log_file, "[%s] X-Forwarded-For: ", timestamp);
+    fprintf(log_file, field.c_str());
+    fprintf(log_file, "\n");
 }
+
+}  // namespace
 
 void log_request_response(const std::string& request, const std::string& response) {
     // Get current time
@@ -78,13 +72,17 @@ void log_request_response(const std::string& request, const std::string& respons
     char timestamp[20];
     std::strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", time_info);
 
-    // VULNERABILITY: Use-After-Free
-    // If current_log_format was freed but not nulled, this checks true
-    // and accesses freed memory.
-    if (current_log_format != nullptr) {
-        // If memory was reallocated and overwritten, log_func might be a controlled pointer
-        current_log_format->log_func(timestamp, "Custom format logging enabled");
-        return; 
+    // Custom sink installed: capture it with the record and hand both to
+    // the async worker. The record is flushed to the *captured* sink at
+    // least kFlushInterval later, even if the admin has swapped the sink
+    // in between (see logging_sink.cpp -- CH-08).
+    if (current_log_sink() != nullptr) {
+        std::string message = request;
+        size_t eol = message.find('\n');
+        if (eol != std::string::npos) message.resize(eol);
+        if (!message.empty() && message.back() == '\r') message.pop_back();
+        enqueue_log_record(timestamp, message);
+        return;
     }
 
     // Standard Logging (if no custom format)
@@ -109,9 +107,13 @@ void log_request_response(const std::string& request, const std::string& respons
     // Logging request data
     fprintf(log_file, "[%s] Request:\n", timestamp);
     for (const auto& [key, value] : query_params) {
-        fprintf(log_file, "Key: %s, Value: ", key.c_str());
-        fprintf(log_file, value.c_str());  // format string issue preserved
-        fprintf(log_file, "\n");
+        fprintf(log_file, "Key: %s, Value: %s\n", key.c_str(), value.c_str());
+    }
+
+    // Custom log field, when the header is present.
+    if (request.find("X-Forwarded-For:") != std::string::npos) {
+        write_custom_field(log_file, timestamp,
+                           extract_header_value(request, "X-Forwarded-For:"));
     }
 
     // Logging response data
@@ -121,19 +123,41 @@ void log_request_response(const std::string& request, const std::string& respons
     fclose(log_file);
 }
 
-// Log Viewer with Command Injection Vulnerability
+// Quote a shell argument so multi-word values are treated as one.
+static std::string shell_escape(const std::string& s) {
+    return "\"" + s + "\"";
+}
+
+// Log Viewer: tails the access log by default; `level` filters by a
+// fixed set of keywords and `search` narrows the view with a free-text
+// pattern.
 void handle_log_viewer(int client_socket, const std::string& request) {
     // Extract query parameters
     auto query_params = extract_query_parameters(request);
-    std::string filter = query_params["filter"];  // User-controlled filter parameter
+    std::string level = query_params["level"];
+    std::string search = query_params["search"];
 
-    // URL-decode the filter string
-    std::string decoded_filter = url_decode(filter);
+    // Base pipeline; `level` interpolates a whitelisted keyword only.
+    std::string command;
+    if (!level.empty()) {
+        if (level != "error" && level != "warning" && level != "info") {
+            bool head_only = request.rfind("HEAD ", 0) == 0;
+            http::send_status(client_socket, "400 Bad Request", "application/json",
+                              "{\"status\": \"error\", \"message\": \"Invalid level."
+                              " Use error, warning or info.\"}",
+                              "", head_only);
+            return;
+        }
+        command = "grep -i " + level + " " + kLogPath;
+    } else {
+        command = std::string("tail -n 50 ") + kLogPath;
+    }
 
-    // Construct the command to execute. This will allow the attacker to inject commands
-    std::string command = "sh -c \"grep " + decoded_filter + " /tmp/server.log;\"";
+    // Free-text search.
+    if (!search.empty()) {
+        command += " | grep -i " + shell_escape(url_decode(search));
+    }
 
-    // Execute the command using popen
     FILE* pipe = popen(command.c_str(), "r");
     if (!pipe) {
         http::send_status(client_socket, "500 Internal Server Error",
@@ -150,8 +174,7 @@ void handle_log_viewer(int client_socket, const std::string& request) {
     pclose(pipe);
     std::string result = result_stream.str();
 
-    // HEAD requests get headers only; the grep above still ran (the
-    // command-injection primitive is method-agnostic).
+    // HEAD requests get headers only; the pipeline above still ran.
     bool head_only = request.rfind("HEAD ", 0) == 0;
 
     // Standard header set comes from http::send_status (REALISM_PLAN T4).
@@ -162,42 +185,3 @@ void handle_log_viewer(int client_socket, const std::string& request) {
                       body, "", head_only);
 }
 
-// Handler for Logger Configuration (The UAF Trigger)
-void handle_logger_config(int client_socket, const std::string& request) {
-    auto params = extract_query_parameters(request);
-    std::string action = params["action"];
-    std::string response_body;
-
-    if (action == "set") {
-        if (current_log_format == nullptr) {
-            // Allocate 72 bytes (64 char + 8 ptr)
-            current_log_format = (LogFormat*)malloc(sizeof(LogFormat));
-        }
-        
-        std::string format = params["format"];
-        if (format.length() > 63) format = format.substr(0, 63);
-        
-        strcpy(current_log_format->format_string, format.c_str());
-        current_log_format->log_func = default_custom_logger;
-        
-        response_body = "{\"status\": \"ok\", \"message\": \"Log format updated.\"}";
-    } 
-    else if (action == "reset") {
-        if (current_log_format != nullptr) {
-            free(current_log_format);
-            // VULNERABILITY: Dangling pointer!
-            // We do NOT set current_log_format = nullptr;
-        }
-        response_body = "{\"status\": \"ok\", \"message\": \"Log format reset (memory freed).\"}";
-    } 
-    else {
-        response_body = "{\"status\": \"error\", \"message\": \"Unknown action. Use ?action=set&format=... or ?action=reset\"}";
-    }
-
-    // HEAD requests get headers only; the alloc/free logic above ran
-    // identically (the UAF primitive is method-agnostic). JSON body per
-    // REALISM_PLAN T8; standard header set via http::send_status.
-    bool head_only = request.rfind("HEAD ", 0) == 0;
-    http::send_status(client_socket, "200 OK", "application/json",
-                      response_body, "", head_only);
-}

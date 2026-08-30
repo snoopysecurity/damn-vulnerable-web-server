@@ -12,6 +12,8 @@ namespace handlers {
 void system_status(int client_socket, const HttpRequest& req);   // CWE-122
 void upload_file  (int client_socket, const HttpRequest& req);   // CWE-190
 void add_rule     (int client_socket, const HttpRequest& req);   // CWE-843 setup
+void update_rule  (int client_socket, const HttpRequest& req);   // CWE-843 trigger
+void logging      (int client_socket, const HttpRequest& req);   // CWE-416 trigger
 void whoami       (int client_socket, const HttpRequest& req);   // CWE-125 info-leak
 
 }

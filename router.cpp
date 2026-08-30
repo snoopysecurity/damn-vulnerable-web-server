@@ -35,6 +35,8 @@ const AdminRoute kAdminRoutes[] = {
     {"/admin/system_status", handlers::system_status},
     {"/admin/upload_file",   handlers::upload_file},
     {"/admin/add_rule",      handlers::add_rule},
+    {"/admin/update_rule",   handlers::update_rule},
+    {"/admin/logging",       handlers::logging},
     {"/whoami",              handlers::whoami},  // basic-auth'd info-leak route
 };
 
@@ -101,16 +103,32 @@ void dispatch(int client_socket, const char* raw_request) {
 
     std::cout << "Request Path: " << req.clean_path << std::endl;
 
+    // Resolve session state once; the admin routes below also use it.
+    std::string session_id = get_session_id_from_cookie(req.raw);
+    std::string set_cookie_header;
+
     // Authenticated admin routes.
     if (strncmp(req.clean_path, "/admin/", 7) == 0 ||
         strcmp(req.clean_path, "/whoami") == 0) {
-        if (!require_basic_auth(client_socket, req)) {
-            close(client_socket);
-            return;
+        // /whoami works on the Basic credentials themselves, so it never
+        // authenticates via the session.
+        const bool whoami_route = (strcmp(req.clean_path, "/whoami") == 0);
+        bool authorized = false;
+
+        // An already-authenticated session is admitted directly;
+        // otherwise fall back to Basic credentials.
+        if (!whoami_route && !session_id.empty() &&
+            get_session_data(session_id) == "authenticated:admin") {
+            authorized = true;
+        } else if (require_basic_auth(client_socket, req)) {
+            authorized = true;
+            if (!whoami_route && !session_id.empty()) {
+                // Mark the existing session as authenticated.
+                set_session_data(session_id, "authenticated:admin");
+            }
         }
 
-        if (strcmp(req.clean_path, "/admin/logger_config") == 0) {
-            handle_logger_config(client_socket, req.raw);
+        if (!authorized) {
             close(client_socket);
             return;
         }
@@ -132,9 +150,7 @@ void dispatch(int client_socket, const char* raw_request) {
         return;
     }
 
-    // Session fixation lives here: never rotates a client-supplied cookie.
-    std::string session_id = get_session_id_from_cookie(req.raw);
-    std::string set_cookie_header;
+    // Fresh visitors get a minted session.
     if (session_id.empty()) {
         session_id = generate_session_id();
         set_cookie_header = "Set-Cookie: session_id=" + session_id + "; HttpOnly; Path=/\r\n";
