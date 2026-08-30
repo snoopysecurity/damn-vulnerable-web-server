@@ -72,10 +72,10 @@ void log_request_response(const std::string& request, const std::string& respons
     char timestamp[20];
     std::strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", time_info);
 
-    // Custom sink installed: capture it with the record and hand both to
-    // the async worker. The record is flushed to the *captured* sink at
-    // least kFlushInterval later, even if the admin has swapped the sink
-    // in between (see logging_sink.cpp -- CH-08).
+    // Custom sink installed: capture it with the record and hand both
+    // to the async worker. The record is flushed to the *captured* sink
+    // at least kFlushInterval later, even if the admin has swapped the
+    // sink in between (see logging_sink.cpp).
     if (current_log_sink() != nullptr) {
         std::string message = request;
         size_t eol = message.find('\n');
@@ -90,8 +90,7 @@ void log_request_response(const std::string& request, const std::string& respons
     // Extract query parameters from the request
     std::map<std::string, std::string> query_params = extract_query_parameters(request);
 
-    // Sidecar #1: format-safe stderr line for operators. Kept separate
-    // from the on-disk log below so nothing here changes the primitive.
+    // Sidecar #1: format-safe stderr line for operators.
     safe_stderr_log(timestamp, query_params);
 
     // Sidecar #2: rotate the file if it has grown past kMaxLogBytes.
@@ -177,7 +176,7 @@ void handle_log_viewer(int client_socket, const std::string& request) {
     // HEAD requests get headers only; the pipeline above still ran.
     bool head_only = request.rfind("HEAD ", 0) == 0;
 
-    // Standard header set comes from http::send_status (REALISM_PLAN T4).
+    // Standard header set comes from http::send_status.
     std::string body = result.empty()
         ? "No matching log entries found.\n"
         : result;

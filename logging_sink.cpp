@@ -31,8 +31,8 @@ struct QueueEntry {
 std::mutex g_queue_mtx;
 std::vector<QueueEntry> g_queue;
 
-// NOTE: deliberately not synchronized with the queue or the worker.
-// The admin thread swaps/deletes it while request threads read it.
+// Not synchronized with the queue or the worker: the admin thread
+// swaps/deletes it while request threads read it.
 LogSink* g_sink = nullptr;
 
 void file_sink_write(const LogRecord& record) {
@@ -72,12 +72,10 @@ void worker_loop() {
         }
 
         for (const auto& entry : due) {
-            // --- INTENTIONAL VULNERABILITY (CWE-416, use-after-free) ---
-            // entry.sink may have been deleted by install_log_sink()
-            // while this record sat in the queue. Nothing invalidated the
-            // captured pointer, so this virtual call dispatches through
-            // whatever now lives at that address (vtable pointer read
-            // from freed memory when the chunk has been reclaimed).
+            // The sink pointer was captured at enqueue time and is not
+            // invalidated when install_log_sink() deletes the sink, so
+            // it can point to freed memory by the time the record is
+            // flushed.
             if (entry.sink != nullptr) {
                 entry.sink->write(entry.record);
             }
@@ -107,11 +105,9 @@ LogSink* current_log_sink() {
 }
 
 void install_log_sink(LogSink* sink) {
-    // --- INTENTIONAL VULNERABILITY (CWE-416, use-after-free) ---
-    // The outgoing sink is deleted immediately. Records already queued
+    // Deletes the outgoing sink immediately. Records already queued
     // for the async worker still hold the old pointer and will call
-    // write() on it after the free. No synchronization with the worker,
-    // no ownership hand-off of in-flight records.
+    // write() on it after the free.
     LogSink* old = g_sink;
     g_sink = sink;
     delete old;

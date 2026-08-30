@@ -23,9 +23,7 @@
 
 namespace handlers {
 
-// HTML-escape a filesystem entry name for the autoindex listing. Real
-// servers escape here too; names come from the filesystem, which an
-// attacker can influence via traversal into arbitrary directories.
+// HTML-escape a filesystem entry name for the autoindex listing.
 static std::string html_escape(const std::string& s) {
     std::string out;
     out.reserve(s.size());
@@ -41,9 +39,8 @@ static std::string html_escape(const std::string& s) {
     return out;
 }
 
-// nginx-style directory listing (REALISM_PLAN T10): classic
-// misconfiguration realism -- "Options +Indexes" on every directory.
-// Returns an empty string when the directory cannot be read.
+// nginx-style directory listing. Returns an empty string when the
+// directory cannot be read.
 static std::string autoindex_page(const std::string& fs_dir,
                                   const std::string& uri) {
     std::vector<std::string> names;
@@ -132,9 +129,8 @@ static void serve_file(int client_socket, const char* file_path,
             }
         }
         if (!index_found) {
-            // Autoindex (REALISM_PLAN T10): list the directory contents
-            // instead of refusing the request. Falls back to 403 only if
-            // the directory cannot be read.
+            // Autoindex: list the directory contents. Falls back to
+            // 403 only if the directory cannot be read.
             std::string title = (request_path[0] != '\0') ? request_path : "/";
             std::string body = autoindex_page(resolved_path, title);
             if (body.empty()) {
@@ -164,7 +160,7 @@ static void serve_file(int client_socket, const char* file_path,
         }
     }
 
-    FILE* file = fopen(resolved_path, "r");  // path traversal logic preserved
+    FILE* file = fopen(resolved_path, "r");
 
     if (file == nullptr) {
         perror("Failed to open file");
@@ -177,7 +173,7 @@ static void serve_file(int client_socket, const char* file_path,
     if (check_php_file(resolved_path)) {
         // CGI-style response: no Content-Length; the connection close
         // delimits the body (standard behaviour for piped interpreter
-        // output). Standard header set otherwise (REALISM_PLAN T4).
+        // output). Standard header set otherwise.
         response_header = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\n";
         if (!set_cookie_header.empty()) response_header += set_cookie_header;
         response_header += std::string("Server: ") + http::kServerBanner + "\r\n";
@@ -191,9 +187,9 @@ static void serve_file(int client_socket, const char* file_path,
         return;
     }
 
-    // File metadata for Content-Length / Last-Modified / conditional GET
-    // (REALISM_PLAN T4 + T6). fstat() on the open FILE* avoids a TOCTOU
-    // window; if it fails we degrade to a close-delimited response.
+    // File metadata for Content-Length / Last-Modified / conditional
+    // GET. fstat() on the open FILE* avoids a TOCTOU window; if it
+    // fails we degrade to a close-delimited response.
     struct stat file_stat{};
     const bool have_stat = (fstat(fileno(file), &file_stat) == 0);
     const std::string last_modified =
@@ -300,11 +296,11 @@ void serve_static(int client_socket, const HttpRequest& req,
 
     bool head_only = (req.method == "HEAD");
 
-    // Real-server behaviour: a directory requested without its trailing
-    // slash gets a 301 redirect. This also keeps "/admin" (no slash) from
-    // serving "/admin/index.php" around the router's "/admin/" auth
-    // prefix check. Only printable, space-free paths are redirectable so
-    // the Location header can never carry injected CR/LF.
+    // A directory requested without its trailing slash gets a 301
+    // redirect; this also keeps "/admin" (no slash) from serving
+    // "/admin/index.php" around the router's "/admin/" auth prefix
+    // check. Only printable, space-free paths are redirectable so the
+    // Location header cannot carry injected CR/LF.
     struct stat path_stat{};
     size_t dir_len = file_path.length();
     if (dir_len > 0 && file_path[dir_len - 1] != '/' &&

@@ -1,10 +1,9 @@
 // cgi_rules.h
 //
-// Backing store for the type-confusion challenge. Route objects form a
-// normal C++ hierarchy; separately, the router keeps a metadata map
-// (path -> RouteType) that is *supposed* to mirror each object's actual
-// class. The two sources of truth can drift apart: /admin/update_rule
-// rewrites the metadata entry without reconstructing the object.
+// Route registry for /cgi-bin dispatch. Route objects form a normal
+// C++ hierarchy; the router additionally keeps a metadata map
+// (path -> RouteType) that /admin/update_rule can rewrite without
+// reconstructing the object it describes.
 #ifndef DVWS_CGI_RULES_H
 #define DVWS_CGI_RULES_H
 

@@ -1,9 +1,8 @@
 // fuzz_query_params.cpp
 //
-// libFuzzer harness for extract_query_parameters(). This is a small,
-// deterministic function that reads a raw HTTP request and returns a
-// map of query parameters -- a great teaching example of structure-
-// aware fuzzing on a pure parser (no side effects, no sockets).
+// libFuzzer harness for extract_query_parameters(): feeds the fuzzer
+// bytes to the parser as a raw HTTP request (no side effects, no
+// sockets).
 
 #include <cstddef>
 #include <cstdint>

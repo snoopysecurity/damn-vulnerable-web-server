@@ -1,8 +1,7 @@
 // router.cpp
 //
-// Extracted from the former monolithic handle_request() in main.cpp.
-// Structure only; every intentional vulnerability continues to live in
-// its dedicated handler and behaves byte-for-byte identically.
+// The dispatch() entry point: parses the request, routes it to the
+// matching handler module, and closes the client socket.
 #include "router.h"
 
 #include "authentication.h"
@@ -37,7 +36,7 @@ const AdminRoute kAdminRoutes[] = {
     {"/admin/add_rule",      handlers::add_rule},
     {"/admin/update_rule",   handlers::update_rule},
     {"/admin/logging",       handlers::logging},
-    {"/whoami",              handlers::whoami},  // basic-auth'd info-leak route
+    {"/whoami",              handlers::whoami},  // Basic-Auth protected
 };
 
 bool require_basic_auth(int client_socket, const HttpRequest& req) {
@@ -60,10 +59,10 @@ bool require_basic_auth(int client_socket, const HttpRequest& req) {
 void dispatch(int client_socket, const char* raw_request) {
     HttpRequest req;
     if (!HttpRequest::parse(raw_request, req)) {
-        // Real servers answer; they don't drop the connection silently.
-        // A well-formed request line with an unsupported method gets a
-        // 405 (+ Allow); anything malformed gets a 400. Bodies are static
-        // strings: no request data is reflected into the response.
+        // Answer instead of dropping the connection: a well-formed
+        // request line with an unsupported method gets a 405 (+ Allow);
+        // anything malformed gets a 400. Bodies are static strings: no
+        // request data is reflected into the response.
         // Note: not a syscall failure, so perror() would print a bogus
         // errno string. Use fprintf on stderr instead.
         if (!req.method.empty()) {
@@ -87,14 +86,14 @@ void dispatch(int client_socket, const char* raw_request) {
 
     handlers::status_bump_request_counter();
 
-    // Unauthenticated /status endpoint for workshop instructors.
+    // Unauthenticated /status endpoint.
     if (strcmp(req.clean_path, "/status") == 0) {
         handlers::status(client_socket, req);
         close(client_socket);
         return;
     }
 
-    // Special: log viewer (unauthenticated by design; command injection sink).
+    // Log viewer; unauthenticated.
     if (strcmp(req.clean_path, "/logs") == 0) {
         handle_log_viewer(client_socket, req.raw);
         close(client_socket);

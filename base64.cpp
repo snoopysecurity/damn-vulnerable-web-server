@@ -76,9 +76,7 @@ unsigned char* base64_decode(const char* data, size_t input_length, size_t* outp
 
     // Allocate one extra byte so callers can safely NUL-terminate the
     // returned buffer (e.g. extract_username_password() writes '\0' at
-    // [*output_length]). Without this, ASan trips a 1-byte heap-buffer-
-    // overflow on every Basic-Auth request and takes the server down
-    // before any of the intentional vulnerabilities can be exercised.
+    // [*output_length]).
     unsigned char* decoded_data = static_cast<unsigned char*>(std::malloc(*output_length + 1));
     if (decoded_data == nullptr) {
         return nullptr;

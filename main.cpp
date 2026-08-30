@@ -1,7 +1,7 @@
 // main.cpp
 //
-// Post-refactor: arg parsing, socket setup, and the accept loop only.
-// All routing/vuln logic lives under router.cpp, handlers/, and http/.
+// Argument parsing, socket setup, and the accept loop. Routing lives
+// in router.cpp and the handlers/ + http/ modules.
 #include <arpa/inet.h>
 #include <csignal>
 #include <poll.h>
@@ -22,10 +22,10 @@
 #define MAX_REQUEST_SIZE 1024
 #define N_WORKER_THREADS 8
 
-// Graceful shutdown (REALISM_PLAN T9): SIGTERM/SIGINT set a flag; the
-// accept loop polls with a timeout so it re-checks the flag at least
-// twice a second, then drains workers before exiting. Docker's
-// STOPSIGNAL SIGTERM lands here.
+// Graceful shutdown: SIGTERM/SIGINT set a flag; the accept loop polls
+// with a timeout so it re-checks the flag at least twice a second,
+// then drains workers before exiting. Docker's STOPSIGNAL SIGTERM
+// lands here.
 static volatile sig_atomic_t g_shutdown_requested = 0;
 
 static void request_shutdown(int) {
@@ -90,10 +90,8 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // --- INTENTIONAL VULNERABILITY (CWE-121, argv global BOF) ---
-    // Preserved verbatim: unbounded strcpy into a 200-byte member of a
-    // global struct. Wrapping it in ServerConfig does not change the
-    // primitive; the destination is still a fixed-size char buffer.
+    // Copy the server directory argument into the fixed-size field of
+    // the global config.
     strcpy(g_config.server_dir, argv[1]);
     g_config.port = atoi(argv[2]);
     g_config.fuzz_mode = (argc > 3 && strcmp(argv[3], "--fuzz") == 0);
@@ -103,11 +101,10 @@ int main(int argc, char* argv[]) {
     }
     int port = g_config.port;
 
-    // A client disconnecting mid-response would otherwise kill the whole
-    // server via SIGPIPE. This is not a mitigation of any intentional
-    // vulnerability -- it just keeps the CTF instance up during a workshop.
-    // Handlers that care about robust delivery should additionally pass
-    // MSG_NOSIGNAL to their send() calls on Linux.
+    // A client disconnecting mid-response would otherwise kill the
+    // server via SIGPIPE. Handlers that care about robust delivery
+    // should additionally pass MSG_NOSIGNAL to their send() calls on
+    // Linux.
     signal(SIGPIPE, SIG_IGN);
     signal(SIGTERM, request_shutdown);
     signal(SIGINT, request_shutdown);
@@ -138,7 +135,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // nginx-style startup banner (REALISM_PLAN T9).
+    // Startup banner.
     std::cout << http::kServerBanner << " (damn-vulnerable-web-server) starting up\n"
               << "  docroot:   " << g_config.server_dir << "\n"
               << "  listening: 0.0.0.0:" << port << "\n"
@@ -174,10 +171,9 @@ int main(int argc, char* argv[]) {
         pool.submit([client_socket] {
             char request[MAX_REQUEST_SIZE];
             memset(request, 0, sizeof(request));
-            // Leave one byte for the trailing NUL so parse()'s C-string
-            // operations don't walk off the buffer when the client sends
-            // >= MAX_REQUEST_SIZE bytes. This preserves the intentional
-            // 1024-byte recv ceiling that test_recv_truncation asserts.
+            // Leave one byte for the trailing NUL so parse()'s
+            // C-string operations stay in bounds when the client sends
+            // >= MAX_REQUEST_SIZE bytes.
             int recv_result = recv(client_socket, request, sizeof(request) - 1, 0);
             if (recv_result <= 0) {
                 close(client_socket);

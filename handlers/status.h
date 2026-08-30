@@ -1,8 +1,7 @@
 // handlers/status.h
 //
-// Unauthenticated /status endpoint for workshop instructors.
-// Reports uptime and total request count. Deliberately does not leak
-// anything an attacker could use to bypass the intentional challenges.
+// Unauthenticated /status endpoint. Reports uptime and total request
+// count.
 #ifndef DVWS_HANDLERS_STATUS_H
 #define DVWS_HANDLERS_STATUS_H
 

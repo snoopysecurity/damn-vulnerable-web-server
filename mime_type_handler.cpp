@@ -11,9 +11,9 @@
 #include <sys/types.h>
 
 const char* get_content_type(const char* file_path) {
-    // nginx-flavoured mapping table (REALISM_PLAN T7). Text types carry an
-    // explicit charset; unknown extensions fall back to a binary stream
-    // like a real server's default_type, not text/plain.
+    // nginx-flavoured mapping table. Text types carry an explicit
+    // charset; unknown extensions fall back to a binary stream, not
+    // text/plain.
     static const struct {
         const char* ext;
         const char* type;

@@ -1,9 +1,9 @@
 // http/response.h
 //
-// Tiny helpers for the response side. Handlers that need to preserve a
-// specific byte-for-byte response format (because a challenge depends on
-// it) should keep constructing their own strings; the helpers here are
-// only for the routine "send this body with this status" cases.
+// Tiny helpers for the response side. Handlers that need a specific
+// byte-for-byte response format should keep constructing their own
+// strings; the helpers here are for the routine "send this body with
+// this status" cases.
 #ifndef DVWS_HTTP_RESPONSE_H
 #define DVWS_HTTP_RESPONSE_H
 
@@ -12,8 +12,8 @@
 
 namespace http {
 
-// Server identification banner, sent on every response. Kept in sync with
-// /status and the site footer (REALISM_PLAN T15).
+// Server identification banner, sent on every response. Kept in sync
+// with /status and the site footer.
 inline const char* const kServerBanner = "DVWS/1.0";
 
 // RFC 7231 IMF-fixdate, e.g. "Sun, 06 Nov 1994 08:49:37 GMT".
@@ -21,8 +21,8 @@ std::string http_date(std::time_t t);
 std::string http_date_now();
 
 // Consistent styled page for 301/400/403/404/405 responses. `detail` is
-// inline HTML (the 404/403 reflection of the requested path is intentional
-// pre-existing behavior; everything else passes static strings only).
+// inline HTML; the 404/403 callers reflect the requested path in it,
+// everything else passes static strings only.
 std::string error_page(int status_code, const std::string& reason,
                        const std::string& detail = "");
 
@@ -43,8 +43,8 @@ inline void send_ok(int client_socket, const std::string& body,
     send_status(client_socket, "200 OK", "text/plain; charset=utf-8", body, extra_headers, head_only);
 }
 
-// API-style JSON response (REALISM_PLAN T8). Bodies are always static
-// strings built by the caller -- no request data is reflected into them.
+// API-style JSON response. Bodies are always static strings built by
+// the caller -- no request data is reflected into them.
 inline void send_json(int client_socket, const std::string& body,
                       const std::string& extra_headers = "",
                       bool head_only = false) {

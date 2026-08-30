@@ -1,10 +1,7 @@
 // thread_pool.h
 //
-// Minimal fixed-size thread pool for the accept loop. Multiple workshop
-// students can now poke the server simultaneously. Note that this
-// *broadens* the attack surface of the intentional heap bugs: concurrent
-// requests give attackers better heap-grooming primitives (a feature,
-// not a bug, in a teaching context).
+// Minimal fixed-size thread pool: the accept loop hands each accepted
+// connection to a worker, so requests are handled concurrently.
 #ifndef DVWS_THREAD_POOL_H
 #define DVWS_THREAD_POOL_H
 

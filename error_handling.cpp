@@ -13,13 +13,13 @@
 #include "server_config.h"
 
 void send_error_response(int client_socket, int status_code, const char* status_text, const char* requested_page, int send_body) {
-    // Styled, consistent error page (REALISM_PLAN T5). The reflection of
-    // the requested path is intentional pre-existing behavior.
+    // Styled, consistent error page; the requested path is reflected
+    // in the body.
     std::string body = http::error_page(
         status_code, status_text,
         std::string("Requested page: ") + requested_page);
 
-    // Full standard header set (REALISM_PLAN T4).
+    // Full standard header set.
     std::string response_header = "HTTP/1.1 " + std::to_string(status_code) +
                                   " " + status_text + "\r\n";
     response_header += "Content-Type: text/html; charset=utf-8\r\n";

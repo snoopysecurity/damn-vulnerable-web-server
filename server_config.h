@@ -1,15 +1,11 @@
 // server_config.h
 //
-// Wraps what used to be the bare `SERVER_DIR` global in a named struct.
-// The vulnerable 200-byte char array is *inside* the struct so the
-// intentional argv-BOF primitive is preserved verbatim.
+// Process-wide server configuration, set once from argv in main().
 #ifndef DVWS_SERVER_CONFIG_H
 #define DVWS_SERVER_CONFIG_H
 
 struct ServerConfig {
-    // Intentional CWE-121 target: unbounded strcpy(g_config.server_dir, argv[1]).
-    // Keep this 200 bytes to preserve the challenge behavior.
-    char server_dir[200];
+    char server_dir[200];  // document root, copied from argv[1]
     int  port;
     bool fuzz_mode;
 };

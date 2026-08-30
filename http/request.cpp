@@ -78,9 +78,7 @@ bool HttpRequest::parse(const char* raw_request, HttpRequest& out) {
     *path_end = '\0';
     char* path_with_query = path_start + method_offset;
 
-    // --- INTENTIONAL VULNERABILITY (CWE-121, stack BOF) ---
-    // Unbounded strcpy into a 200-byte on-stack buffer.
-    // Do not "fix" this: it is the primary teaching primitive.
+    // Copy the raw path, unbounded, into the 200-byte clean_path.
     strcpy(out.clean_path, path_with_query);
 
     // Split off the query string component for handler convenience.

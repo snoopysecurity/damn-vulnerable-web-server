@@ -14,13 +14,10 @@ bool cgi_dispatch(int client_socket, const HttpRequest& req) {
 
     for (Route* rule : cgi_rules()) {
         if (rule->path == req.clean_path) {
-            // The router's metadata map decides how a rule is invoked.
-            // --- INTENTIONAL VULNERABILITY (CWE-843, blind static_cast) ---
-            // The metadata entry and the object's actual class can
-            // disagree (see /admin/update_rule, which rewrites the tag
-            // without reconstructing the object). A StaticRoute tagged
-            // CGI is cast to CgiRoute* and its `directory` string is
-            // interpreted as `executable`.
+            // Dispatch is decided by the router's metadata map, not by
+            // the object's actual class: a rule tagged CGI is cast to
+            // CgiRoute* and its first string member is read as
+            // `executable`.
             if (route_types()[rule->path] != RouteType::CGI) {
                 continue;
             }

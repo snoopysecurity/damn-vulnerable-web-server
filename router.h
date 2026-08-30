@@ -1,8 +1,6 @@
 // router.h
 //
-// Central request dispatcher. Extracted from the former monolithic
-// handle_request() in main.cpp so each intentional vulnerability lives
-// in a dedicated handler file that maps cleanly to CHALLENGES.md.
+// Central request dispatcher.
 #ifndef DVWS_ROUTER_H
 #define DVWS_ROUTER_H
 

@@ -14,13 +14,13 @@ jobs:
         build:
           - name: vulnerable
             flags: "-DENABLE_HARDENING=OFF -DENABLE_ASAN=OFF"
-            run_asan: false
+            run_hardening: false
           - name: asan
             flags: "-DENABLE_HARDENING=OFF -DENABLE_ASAN=ON"
-            run_asan: true
+            run_hardening: false
           - name: hardened
             flags: "-DENABLE_HARDENING=ON  -DENABLE_ASAN=OFF"
-            run_asan: false
+            run_hardening: true
 
     runs-on: ubuntu-latest
     name: ${{ matrix.build.name }}
@@ -41,7 +41,7 @@ jobs:
         run: cmake --build build -j
 
       - name: Verify vulnerable pattern still present in source
-        # Cheap smoke test that no one accidentally removed a challenge.
+        # Smoke test: the vulnerable code patterns are still in the source.
         run: |
           set -e
           grep -qE 'strcpy\(g_config\.server_dir, argv\[1\]\)' main.cpp
@@ -51,6 +51,7 @@ jobs:
           grep -q 'fprintf(log_file, field.c_str())'             request_logger.cpp
           grep -q 'set_session_data(session_id, "authenticated:admin")' router.cpp
           grep -q 'SESSION_%08x'                                 session_manager.cpp
+          grep -q '/tmp/php_script_%d.php'                       mime_type_handler.cpp
           grep -q 'std::string(response, sizeof(response))'      handlers/admin.cpp
           grep -q 'entry.sink->write(entry.record)'              logging_sink.cpp
           grep -q 'delete old;'                                  logging_sink.cpp
@@ -60,9 +61,9 @@ jobs:
           grep -q 'static_cast<CgiRoute\*>(rule)'                handlers/cgi.cpp
 
       - name: Run exploit regression suite
-        run: |
-          if [ "${{ matrix.build.run_asan }}" = "true" ]; then
-              python3 tests/exploit/run_all.py
-          else
-              python3 tests/exploit/run_all.py
-          fi
+        run: python3 tests/exploit/run_all.py
+
+      - name: Verify hardening flags produce PIE / non-PIE binaries
+        # Runs last: test_hardening.py wipes and rebuilds build/.
+        if: ${{ matrix.build.run_hardening }}
+        run: python3 tests/test_hardening.py

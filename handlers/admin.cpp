@@ -1,7 +1,8 @@
 // handlers/admin.cpp
 //
-// Home for the /admin/* routes. Each function contains one intentional
-// vulnerability; the card in challenges/README.md tells the full story.
+// Handlers for the /admin/* routes (plus /whoami). Each handler parses
+// what it needs from the request, writes the response, and returns;
+// the router has already authenticated the client.
 #include "admin.h"
 
 #include "../authentication.h"
@@ -71,15 +72,11 @@ void system_status(int client_socket, const HttpRequest& req) {
     }
     status_pos += 7; // skip "status="
 
-    // Size the decode buffer with the shared helper, then decode into
-    // it. The two passes disagree on malformed escapes.
-    // --- INTENTIONAL VULNERABILITY (CWE-122, heap buffer overflow) ---
-    // estimate_decoded_length() (utils.cpp) assumes every '%' begins a
-    // valid %XX escape and counts one output byte for it. The decoder
-    // above leaves *invalid* escapes verbatim: "%GZ" costs three output
-    // bytes but was estimated as one. Input laced with malformed
-    // escapes decodes to up to 3x the estimated size, and the copy runs
-    // off the end of the allocation.
+    // Size the decode buffer with the shared estimator, then decode
+    // into it. estimate_decoded_length() counts every '%' as the start
+    // of a well-formed %XX escape (one output byte); the decoder above
+    // copies malformed escapes like "%GZ" verbatim (three output
+    // bytes), so input laced with them decodes past the estimate.
     size_t decoded_len = estimate_decoded_length(status_pos);
     char* status_msg = (char*)malloc(decoded_len + 1);
     if (status_msg == nullptr) {
@@ -119,11 +116,9 @@ void upload_file(int client_socket, const HttpRequest& req) {
     unsigned int filename_len =
         (unsigned int)strtoul(filename_length_str.c_str(), nullptr, 10);
 
-    // --- INTENTIONAL VULNERABILITY (CWE-190, integer overflow) ---
-    // Three individually harmless fields -- a 64-byte header, a body
-    // length, a filename length -- are summed in 32-bit arithmetic.
-    // Declared lengths near UINT_MAX wrap the total to a tiny
-    // allocation, while the copy below still uses the *original*
+    // The header, body length and filename length are summed in 32-bit
+    // arithmetic. Declared lengths near UINT_MAX wrap the total to a
+    // small allocation, while the copy below still uses the original
     // content_len for both the offset and the length.
     uint32_t allocation =
         (uint32_t)sizeof(UploadHeader) + content_len + filename_len;
@@ -195,11 +190,10 @@ void update_rule(int client_socket, const HttpRequest& req) {
         return;
     }
 
-    // --- INTENTIONAL VULNERABILITY (CWE-843, type-confusion setup) ---
-    // Only the router's metadata entry is rewritten; the Route object
-    // it describes is not reconstructed. The two sources of truth now
-    // disagree: a StaticRoute can be tagged CGI (and vice versa), and
-    // dispatch in handlers/cgi.cpp will static_cast accordingly.
+    // Rewrite only the router's metadata entry; the Route object it
+    // describes is left as-is. The tag and the object's actual class
+    // can therefore disagree, and dispatch in handlers/cgi.cpp casts
+    // based on the tag.
     route_types()[path] = new_type;
 
     http::send_json(client_socket,
@@ -211,8 +205,7 @@ void logging(int client_socket, const HttpRequest& req) {
     auto params = extract_query_parameters(req.raw);
     std::string output = params["output"];
 
-    // --- INTENTIONAL VULNERABILITY (CWE-416, UAF trigger) ---
-    // install_log_sink() deletes the outgoing sink immediately while
+    // install_log_sink() deletes the outgoing sink immediately;
     // records already queued for the async worker still hold the old
     // pointer (see logging_sink.cpp).
     if (output == "file") {
@@ -244,18 +237,17 @@ void whoami(int client_socket, const HttpRequest& req) {
         return;
     }
 
-    // Identity records are a fixed 128 bytes on the wire so that downstream
-    // tooling can parse them without a length-prefixed protocol.
-    // --- INTENTIONAL VULNERABILITY (CWE-125, uninitialized read) ---
-    // snprintf() writes only strlen("username=...") + 1 bytes of the
-    // record; the whole 128-byte buffer is transmitted regardless. Every
-    // byte past the terminating NUL is stale stack memory from this
-    // worker thread's previous request handling.
+    // Identity records are a fixed 128 bytes on the wire so that
+    // downstream tooling can parse them without a length-prefixed
+    // protocol. snprintf() writes only strlen("username=...") + 1
+    // bytes of the record; the whole 128-byte buffer is transmitted
+    // regardless, so everything past the terminating NUL is whatever
+    // the stack held from earlier request handling on this thread.
     char response[128];
     snprintf(response, sizeof(response), "username=%s\n", username.c_str());
 
-    // head_only: HEAD requests send headers only (Content-Length still
-    // reports the full record size; the GET primitive is unchanged).
+    // HEAD requests send headers only; Content-Length still reports
+    // the full record size.
     http::send_status(client_socket, "200 OK", "application/octet-stream",
                       std::string(response, sizeof(response)), "",
                       req.method == "HEAD");

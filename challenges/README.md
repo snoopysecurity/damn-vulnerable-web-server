@@ -2,27 +2,152 @@
 
 Every intentional vulnerability in this server is a numbered challenge.
 Each section below pairs a *card* (scenario + progressive hints) with its
-*solution* (full exploit). Difficulty is a rough guide for CTF workshops.
+*solution* (full exploit).
+
+Challenges are grouped into three tiers by what it takes to trigger the
+primitive — find the bug, understand the mechanism, or compose earlier
+primitives. Numbering is historical: challenges keep their CH-XX IDs
+across tiers so cross-references (tests, corpus, cards) stay stable.
 
 ⚠️ **Spoilers.** Each card is immediately followed by its full exploit. If
 you're playing the CTF, work through the card first and only read on when
 you're stuck.
 
-| #   | Challenge                                    | Class      | CWE     | Difficulty | Solution |
-|-----|----------------------------------------------|------------|---------|------------|----------|
-| 01  | [Path Traversal](#challenge-01)              | Web        | CWE-22  | easy       | [01](#solution-01) |
-| 02  | [Command Injection](#challenge-02)           | Web        | CWE-78  | easy       | [02](#solution-02) |
-| 03  | [Uncontrolled Format String](#challenge-03)  | Memory     | CWE-134 | medium     | [03](#solution-03) |
-| 04  | [Session Fixation](#challenge-04)            | Web        | CWE-384 | easy       | [04](#solution-04) |
-| 05  | [Predictable Session ID](#challenge-05)      | Crypto/Web | CWE-330 | medium     | [05](#solution-05) |
-| 06  | [Insecure Temp File (race)](#challenge-06)   | System     | CWE-377 | hard       | [06](#solution-06) |
-| 07  | [Username Info Leak](#challenge-07)          | Memory     | CWE-125 | medium     | [07](#solution-07) |
-| 08  | [Use-After-Free (LogSink)](#challenge-08)    | Memory     | CWE-416 | hard       | [08](#solution-08) |
-| 09  | [Heap Buffer Overflow](#challenge-09)        | Memory     | CWE-122 | medium     | [09](#solution-09) |
-| 10  | [Integer Overflow](#challenge-10)            | Memory     | CWE-190 | medium     | [10](#solution-10) |
-| 11  | [Type Confusion](#challenge-11)              | Memory     | CWE-843 | hard       | [11](#solution-11) |
-| 12  | [Stack Buffer Overflow (path)](#challenge-12)| Memory     | CWE-121 | medium     | [12](#solution-12) |
-| 13  | [Global BOF (argv)](#challenge-13)           | Memory     | CWE-121 | easy       | [13](#solution-13) |
+## Beginner — trigger the primitive
+
+A single request triggers the primitive: a leaked pointer, a replayed
+session, a crashed process, a shell.
+
+| #   | Challenge                                    | Class      | CWE     | Solution |
+|-----|----------------------------------------------|------------|---------|----------|
+| 02  | [Command Injection](#challenge-02)           | Web        | CWE-78  | [02](#solution-02) |
+| 03  | [Uncontrolled Format String](#challenge-03)  | Memory     | CWE-134 | [03](#solution-03) |
+| 04  | [Session Fixation](#challenge-04)            | Web        | CWE-384 | [04](#solution-04) |
+| 12  | [Stack Buffer Overflow (path)](#challenge-12)| Memory     | CWE-121 | [12](#solution-12) |
+
+## Intermediate — understand the mechanism
+
+Triggering the primitive requires understanding the mechanism: a path
+before and after canonicalization, a seed and its real entropy, a
+buffer before and after decoding, a declared length and the allocation
+it produced.
+
+| #   | Challenge                                    | Class      | CWE     | Solution |
+|-----|----------------------------------------------|------------|---------|----------|
+| 01  | [Path Traversal](#challenge-01)              | Web        | CWE-22  | [01](#solution-01) |
+| 05  | [Predictable Session ID](#challenge-05)      | Crypto/Web | CWE-330 | [05](#solution-05) |
+| 07  | [Username Info Leak](#challenge-07)          | Memory     | CWE-125 | [07](#solution-07) |
+| 09  | [Heap Buffer Overflow](#challenge-09)        | Memory     | CWE-122 | [09](#solution-09) |
+| 10  | [Integer Overflow](#challenge-10)            | Memory     | CWE-190 | [10](#solution-10) |
+
+## Advanced — compose primitives
+
+These challenges require chaining an earlier challenge's output into
+the next one's input: a leak that defeats ASLR, a groomed chunk placed
+in a freed object, a session that unlocks admin-only setup steps.
+
+| #   | Challenge                                    | Class      | CWE     | Solution |
+|-----|----------------------------------------------|------------|---------|----------|
+| 06  | [Insecure Temp File (race)](#challenge-06)   | System     | CWE-377 | [06](#solution-06) |
+| 08  | [Use-After-Free (LogSink)](#challenge-08)    | Memory     | CWE-416 | [08](#solution-08) |
+| 11  | [Type Confusion](#challenge-11)              | Memory     | CWE-843 | [11](#solution-11) |
+
+### Bonus — outside the tracks
+
+| #   | Challenge                                    | Class      | CWE     | Solution |
+|-----|----------------------------------------------|------------|---------|----------|
+| 13  | [Global BOF (argv)](#challenge-13)           | Memory     | CWE-121 | [13](#solution-13) |
+
+Local-only argv overflow; not part of any track.
+
+## Primitive ledger
+
+What each challenge provides, and what the advanced ones require. This
+table backs the [tracks](#tracks).
+
+| #  | Challenge              | Provides                                        | Consumes |
+|----|------------------------|-------------------------------------------------|----------|
+| 01 | Path traversal         | arbitrary file read (`/proc/self/maps` → layout) | — |
+| 02 | Command injection      | immediate command execution via the shell       | — |
+| 03 | Format string          | stack disclosure (`%p`); write primitive (`%n`, advanced extension) | — |
+| 04 | Session fixation       | authenticated `admin` session                   | a planted/observed pre-auth cookie |
+| 05 | Predictable session    | authenticated `admin` session                   | mint time (±3 s) and the server PID |
+| 06 | Temp-file race         | command execution given local shell             | local shell (e.g. from 02 or 11) |
+| 07 | Identity-record leak   | stale-stack pointers — ASLR defeat              | — |
+| 08 | LogSink UAF            | controlled virtual call                         | a leak (01/03/07) + a heap groom (09) |
+| 09 | Decode-sizing overflow | precise heap write: chosen size class, chosen bytes | — |
+| 10 | Integer overflow       | bulk heap overflow (size picked by the wrap, less precise) | — |
+| 11 | Type confusion         | unauthenticated command execution               | an admin session (04 or 05) |
+| 12 | Stack overflow         | RIP control on the default build; ROP with a leak (advanced extension) | a leak (01/03/07) for the ROP extension |
+| 13 | Global BOF (argv)      | adjacent-global corruption                      | local process invocation |
+
+<a id="tracks"></a>
+
+## Tracks
+
+The intended chains, in order, with the hand-offs between challenges
+called out.
+
+### Track 1 · Web to RCE (session subversion)
+
+```
+04 session fixation  ─┐
+                      ├─► authenticated admin session
+05 session prediction ┘          │
+                                ▼
+        11 add_rule + update_rule    (admin-only setup)
+                                │
+                                ▼
+        /cgi-bin/* trigger           (no credentials)
+```
+
+1. Take over the admin session — plant and inherit one via fixation
+   (04), or predict one from the mint second and PID (05).
+2. The session admits every `/admin/*` route: register a static rule
+   whose `directory` is your command, then flip its tag with
+   `/admin/update_rule` (11).
+3. Trigger it unauthenticated on `/cgi-bin/*` — `execute()` runs the
+   mis-tagged rule's string through `popen()`.
+
+Walkthrough: the solution sections of 04 → 05 → 11.
+
+### Track 2 · Memory exploitation (leak → groom → hijack)
+
+Four stages, one challenge each:
+
+```
+07 identity-record leak ──► pointers / layout (ASLR defeat)
+        │   (03 %p or 01 reading /proc/self/maps are alternates)
+        ▼
+09 decode-sizing overflow ──► precise heap write:
+        │                      your size class, your bytes
+        ▼
+08 LogSink swap ──► freed vtable target; ≥ 250 ms window
+        │            between the delete and the use
+        ▼
+   controlled virtual dispatch (RIP)
+```
+
+1. **Leak** (07): read the stale stack out of the 128-byte `/whoami`
+   record — stack, library and heap pointers for the layout.
+2. **Groom** (09): `%GZ`-laced `status=` input sizes the allocation
+   into the freed sink's chunk class while `%XX` escapes pick the
+   exact bytes; the first 8 bytes become a fake vtable pointer.
+3. **Hijack** (08): swap `/admin/logging?output=...` to free the old
+   sink while a queued record still holds it; the async worker's
+   `sink->write()` dispatches through your vtable.
+
+Note: the regression suite asserts the use-after-free fires
+(`heap-use-after-free` under ASan); pointer-accurate vtable poisoning
+depends on allocator layout.
+
+### Track 3 · Post-ASLR ROP (advanced extension)
+
+12's beginner outcome is RIP control on the default (non-hardened)
+build. The advanced extension is the same overwrite against a hardened
+build — canary-preserving, ROP — which needs addresses. Use a leak
+from 07 (or 03 / 01 via `/proc/self/maps`), rebuild with
+`ENABLE_HARDENING=ON`, and repeat.
 
 ---
 
@@ -59,6 +184,11 @@ followed by `weakly_canonical(joined)`.
 ### Expected primitive
 
 Arbitrary file read within the process's uid.
+
+### Chaining
+
+The file read can also defeat ASLR: `/proc/self/maps` works in place
+of a memory leak in Tracks 2 and 3.
 
 ### Regression test
 
@@ -123,6 +253,10 @@ substituted *inside* double quotes.
 ### Expected primitive
 
 Arbitrary OS command execution as the server user.
+
+### Chaining
+
+Provides local shell access, which 06 requires.
 
 ### Regression test
 
@@ -190,7 +324,13 @@ Any request carrying an `X-Forwarded-For` header.
 
 ### Expected primitive
 
-Memory disclosure via `%p`; write primitive via `%n` (glibc-dependent).
+Beginner outcome: memory disclosure via `%p`. Advanced extension: a
+write primitive via `%n` (glibc-dependent).
+
+### Chaining
+
+The `%p` leak is an alternate ASLR defeat feeding Tracks 2 and 3; the
+`%n` write (advanced extension) is a standalone write primitive.
 
 ### Regression test
 
@@ -249,6 +389,11 @@ on session state alone.
 
 Account takeover after victim login (given the ability to plant a
 cookie).
+
+### Chaining
+
+Feeds Track 1: the inherited session admits every `/admin/*` route —
+the setup steps of 08, 09, 10 and 11 all become reachable.
 
 ### Regression test
 
@@ -317,6 +462,10 @@ Any endpoint whose response contains `Set-Cookie: session_id=SESSION_<hex8>`.
 
 Session-ID prediction leading to hijack of a victim's authenticated session.
 
+### Chaining
+
+Feeds Track 1 like 04; prediction needs no planted cookie.
+
 ### Regression test
 
 `tests/exploit/test_predictable_session.py`
@@ -376,6 +525,11 @@ window between `fclose(temp_file)` and `popen("php <path>")`.
 ### Expected primitive
 
 Arbitrary PHP code execution as the server user given local shell access.
+
+### Chaining
+
+Consumes local shell access — which 02 or 11 provide when you
+started remote.
 
 ### Regression test
 
@@ -439,6 +593,11 @@ session state.
 Uninitialized read → disclosure of stale stack contents (pointers →
 ASLR defeats for the memory-corruption challenges).
 
+### Chaining
+
+First stage of Track 2: the leaked pointers supply the addresses for
+08's fake vtable and 12's ROP extension.
+
 ### Regression test
 
 `tests/exploit/test_username_leak.py`
@@ -455,9 +614,9 @@ curl -s -u admin:admin http://127.0.0.1:8081/whoami | xxd
 ```
 
 The body starts with `username=admin\n`, then a NUL, then ~113 bytes
-of stack garbage. Seed the stack first with a request carrying long
-interesting headers, then connect again — pointers into heap, stack
-and libraries leak and break ASLR for challenges 08–12.
+of stack garbage. Send a request with long headers first, then connect
+again — pointers into heap, stack and libraries leak, defeating ASLR
+for challenges 08–12.
 
 **The fix**: transmit only what was formatted —
 `std::string(response, strlen(response))` — or build the record in a
@@ -508,6 +667,11 @@ queued before the swap.
 Virtual call through a dangling vtable pointer → RIP control once the
 freed chunk is reclaimed with a fake vtable pointer (heap grooming via
 challenge 09).
+
+### Chaining
+
+Final stage of Track 2 — consumes a leak (01/03/07) for addresses and
+09 for the groom that reclaims the freed sink chunk.
 
 ### Regression test
 
@@ -580,7 +744,7 @@ to 3× the estimated size and the copy runs off the allocation.
 1. Well-formed input (`%41`) sizes perfectly. What does `%GZ` cost in
    the estimator versus the decoder?
 2. You control both the decoded *contents* and the allocation *size* —
-   that is a heap-grooming primitive, not just a smash.
+   that makes it a heap-grooming primitive.
 3. Combine with challenge 08: a freed sink chunk is a target your
    sizing can land in.
 
@@ -588,6 +752,11 @@ to 3× the estimated size and the copy runs off the allocation.
 
 Adjacent heap corruption with fully controlled contents and size
 class; fake-vtable construction for the UAF chain.
+
+### Chaining
+
+Second stage of Track 2: the controlled size class and contents are
+what reclaim 08's freed `LogSink` with a fake vtable pointer.
 
 ### Regression test
 
@@ -655,6 +824,11 @@ length.
 ### Expected primitive
 
 Massive controlled heap overflow.
+
+### Chaining
+
+Same allocation bug as 09, but the wrap picks the size, so the write
+is larger and less precise.
 
 ### Regression test
 
@@ -736,6 +910,11 @@ and runs it as a command.
 Arbitrary command execution as the server user via the unauthenticated
 `/cgi-bin/*` dispatch.
 
+### Chaining
+
+Final stage of Track 1 — the admin-only setup is reachable with a
+hijacked session (04/05); the trigger itself needs no credentials.
+
 ### Regression test
 
 `tests/exploit/test_type_confusion.py`
@@ -760,10 +939,11 @@ curl "http://127.0.0.1:8081/cgi-bin/pwn"     # -> uid=...
 ```
 
 No memory is corrupted: both strings occupy the same member offset
-(ordinary single-inheritance layout), which is exactly why the cast
-"works" until it doesn't. Chain with challenge 04 (session fixation)
-or 05 (predictable session IDs) to reach the admin endpoints without
-the password, then flip any static rule into a CGI runner.
+(ordinary single-inheritance layout), so the blind cast reads in
+bounds — the damage is semantic, not memory-safety. Chain with
+challenge 04 (session fixation) or 05 (predictable session IDs) to
+reach the admin endpoints without the password, then flip any static
+rule into a CGI runner.
 
 **The fix**: one source of truth — make the type query virtual
 (`virtual RouteType type() const`) or store the tag inside the object;
@@ -798,7 +978,14 @@ Any HTTP request whose path is longer than 200 bytes.
 
 ### Expected primitive
 
-RIP control (given the hardening-disabled build).
+Beginner outcome: RIP control on the default (non-hardened) build.
+Advanced extension: hardened-build ROP using a leak from 01/03/07
+(Track 3).
+
+### Chaining
+
+Track 3: overwrite the return address first, then repeat against a
+hardened build using a leak (01/03/07) for the addresses.
 
 ### Regression test
 
@@ -848,6 +1035,10 @@ Not network-reachable: local process invocation.
 ### Expected primitive
 
 Adjacent-global corruption; realistic damage depends on link order.
+
+### Chaining
+
+Bonus — outside the tracks.
 
 ### Regression test
 
