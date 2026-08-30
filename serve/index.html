@@ -1,11 +1,129 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Damn Vulnerable Web Server -- a deliberately insecure, hand-rolled HTTP server for security training.">
+  <title>Damn Vulnerable Web Server</title>
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
 <body>
 
-<h1>Damn Vulnerable Web Server</h1>
+  <header class="site">
+    <div class="container">
+      <a class="brand" href="/"><img src="/static/logo.svg" alt="" width="28" height="28">Damn Vulnerable Web Server</a>
+      <nav>
+        <a href="/">Home</a>
+        <a href="/about.html">About</a>
+        <a href="/blog/">Blog</a>
+        <a href="/projects.html">Projects</a>
+        <a href="/downloads/">Downloads</a>
+      </nav>
+    </div>
+  </header>
 
-<p>Welcome to Damn Vulnerable Web Server.</p>
+  <main class="container">
 
+    <section class="hero">
+      <h1>A web server with<br>nothing to hide.</h1>
+      <p class="lead">DVWS is a hand-written C++ HTTP server with a small PHP layer,
+        built to practice finding and exploiting the mistakes every real
+        deployment eventually makes. It is small, it is honest, and it is
+        <em>deliberately</em> full of holes.</p>
+      <p>
+        <span class="badge red">DVWS/1.0</span>
+        <span class="badge">C++ core</span>
+        <span class="badge">PHP via CGI</span>
+        <span class="badge" id="status-chip">checking status&hellip;</span>
+      </p>
+      <div class="actions">
+        <a class="primary" href="/projects.html">Explore the projects</a>
+        <a class="ghost" href="/downloads/">Get the quickstart guide</a>
+      </div>
+    </section>
+
+    <section>
+      <h2>Debug tools running on this box</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>Log viewer</h3>
+          <p>Every request the server handles is appended to the access log.
+            Filter it live from the <code>/logs</code> endpoint -- grep-style,
+            straight from disk.</p>
+          <a class="more" href="/logs">Open /logs &rarr;</a>
+        </div>
+        <div class="card">
+          <h3>Request echo</h3>
+          <p>A PHP debug page that reports what the interpreter sees:
+            superglobals, SAPI, PHP version. Handy when wiring up proxies.</p>
+          <a class="more" href="/echo.php">Open /echo.php &rarr;</a>
+        </div>
+        <div class="card">
+          <h3>Status endpoint</h3>
+          <p>JSON status document with uptime, request count, docroot and
+            interpreter path. Monitors love it.</p>
+          <a class="more" href="/status">Open /status &rarr;</a>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>From the blog</h2>
+      <ul class="posts">
+        <li>
+          <div class="meta">2026-07-19 &middot; ops</div>
+          <a href="/blog/logging-everything.html"><strong>Log everything, regret nothing</strong></a>
+          <p>Why this server records every request, and what our access log
+            taught us after a month.</p>
+        </li>
+        <li>
+          <div class="meta">2026-05-02 &middot; php</div>
+          <a href="/blog/serving-php-the-temp-file-way.html"><strong>Serving PHP the temp-file way</strong></a>
+          <p>No mod_php, no FPM -- we hand each script to the interpreter
+            through a scratch file and it works fine.</p>
+        </li>
+        <li>
+          <div class="meta">2026-03-14 &middot; c++</div>
+          <a href="/blog/rolling-your-own-http-server.html"><strong>Rolling your own HTTP server in C++</strong></a>
+          <p>Parsing request lines with the standard library felt ambitious in
+            2024. Here's how the core loop evolved.</p>
+        </li>
+      </ul>
+    </section>
+
+  </main>
+
+  <footer class="site">
+    <div class="container">
+      <div>
+        <h4>Site</h4>
+        <ul>
+          <li><a href="/about.html">About</a></li>
+          <li><a href="/blog/">Blog</a></li>
+          <li><a href="/projects.html">Projects</a></li>
+          <li><a href="/downloads/">Downloads</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Tools</h4>
+        <ul>
+          <li><a href="/status">Status endpoint</a></li>
+          <li><a href="/echo.php">Request echo</a></li>
+          <li><a href="/logs">Log viewer</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Internal</h4>
+        <ul>
+          <li><a href="/admin/">Admin console</a></li>
+          <li><a href="/whoami">Whoami</a></li>
+        </ul>
+      </div>
+      <p class="fingerprint">&copy; <span data-year>2026</span> the DVWS project &middot; proudly insecure since 2024 &middot; powered by <code>DVWS/1.0</code></p>
+    </div>
+  </footer>
+
+  <script src="/static/app.js"></script>
 </body>
 </html>
-

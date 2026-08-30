@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Log everything, regret nothing | DVWS Blog</title>
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+  <header class="site">
+    <div class="container">
+      <a class="brand" href="/"><img src="/static/logo.svg" alt="" width="28" height="28">Damn Vulnerable Web Server</a>
+      <nav>
+        <a href="/">Home</a>
+        <a href="/about.html">About</a>
+        <a href="/blog/">Blog</a>
+        <a href="/projects.html">Projects</a>
+        <a href="/downloads/">Downloads</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <section>
+      <article class="post">
+        <h1>Log everything, regret nothing</h1>
+        <p class="meta">2026-07-19 &middot; ops &middot; M. Reyes &middot; <a href="/blog/">all posts</a></p>
+
+        <p>One month ago we turned on request logging for every single hit,
+          no sampling, no redaction. The log lives at
+          <code>/tmp/server.log</code> and grows without shame. Here's what
+          we learned.</p>
+
+        <h2>What the traffic looks like</h2>
+        <p>Mostly scanners. Within four hours of existing on a public IP, the
+          first probe for <code>/wp-admin</code> arrived, followed by a
+          cheerful parade of attempts at <code>/.env</code>,
+          <code>/phpmyadmin</code> and a surprising number of requests for
+          <code>/boaform/admin/formLogin</code>. The internet's background
+          radiation is remarkably consistent.</p>
+
+        <h2>The viewer</h2>
+        <p>Reading raw logs over SSH gets old, so we built a small viewer at
+          <a href="/logs">/logs</a>. It takes a <code>filter</code>
+          parameter and greps the log with it, so you can use real patterns
+          like <code>filter=POST</code> or <code>filter=404</code>. The
+          pattern is handed to the system's grep, which keeps the viewer
+          about twenty lines long.</p>
+
+        <h2>Rotation? Never heard of her</h2>
+        <p>We don't rotate, compress, or cap the log. For a workshop box that
+          gets torn down nightly, the log's job is to be interesting, not
+          tidy. The day this thing runs for a year, /tmp will file a
+          complaint.</p>
+
+        <blockquote>The access log is the most honest documentation a server
+          ever writes.</blockquote>
+      </article>
+    </section>
+  </main>
+
+  <footer class="site">
+    <div class="container">
+      <div>
+        <h4>Site</h4>
+        <ul>
+          <li><a href="/about.html">About</a></li>
+          <li><a href="/blog/">Blog</a></li>
+          <li><a href="/projects.html">Projects</a></li>
+          <li><a href="/downloads/">Downloads</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Tools</h4>
+        <ul>
+          <li><a href="/status">Status endpoint</a></li>
+          <li><a href="/echo.php">Request echo</a></li>
+          <li><a href="/logs">Log viewer</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Internal</h4>
+        <ul>
+          <li><a href="/admin/">Admin console</a></li>
+          <li><a href="/whoami">Whoami</a></li>
+        </ul>
+      </div>
+      <p class="fingerprint">&copy; <span data-year>2026</span> the DVWS project &middot; proudly insecure since 2024 &middot; powered by <code>DVWS/1.0</code></p>
+    </div>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

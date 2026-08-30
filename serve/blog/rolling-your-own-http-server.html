@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rolling your own HTTP server in C++ | DVWS Blog</title>
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+  <header class="site">
+    <div class="container">
+      <a class="brand" href="/"><img src="/static/logo.svg" alt="" width="28" height="28">Damn Vulnerable Web Server</a>
+      <nav>
+        <a href="/">Home</a>
+        <a href="/about.html">About</a>
+        <a href="/blog/">Blog</a>
+        <a href="/projects.html">Projects</a>
+        <a href="/downloads/">Downloads</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <section>
+      <article class="post">
+        <h1>Rolling your own HTTP server in C++</h1>
+        <p class="meta">2026-03-14 &middot; c++ &middot; D. Walsh &middot; <a href="/blog/">all posts</a></p>
+
+        <p>When we started DVWS in December 2024, the plan was to wrap a
+          well-known library and get on with the fun part. Six hours into
+          reading somebody else's abstraction of a socket, I deleted the
+          dependency and started over with a <code>recv()</code> loop. Best
+          decision of the project.</p>
+
+        <h2>The request loop</h2>
+        <p>The core is boring on purpose: one thread pool, one blocking
+          accept, and a 1024-byte read buffer per request. A request is
+          whatever fits in that buffer. If a client sends more, we take the
+          first kilobyte and parse that. Real servers do framing; we do
+          optimism.</p>
+
+        <pre>recv(client_socket, buffer, 1024, 0);  // good enough</pre>
+
+        <h2>Routing by prefix</h2>
+        <p>Routes are matched with <code>strncmp</code> against the cleaned
+          path. <code>/admin/</code> gets Basic auth, everything else falls
+          through to the static file handler, and a couple of special paths
+          (<code>/logs</code>, <code>/status</code>) short-circuit early.
+          No regex, no rewrite engine, no surprises.</p>
+
+        <h2>What we learned about buffers</h2>
+        <p>Fixed-size buffers are fine until a path is longer than the
+          buffer's designer imagined. Our clean-path buffer is 200 bytes,
+          and the very first thing <code>main()</code> does is copy the
+          docroot from <code>argv</code> into a fixed-size global with
+          <code>strcpy()</code>. In hindsight, "configured" and "safely
+          copied" are different claims.</p>
+
+        <blockquote>Write the parser yourself at least once. You'll never
+          trust a length-prefixed field again.</blockquote>
+
+        <p>Next post: bolting a PHP layer onto this thing.</p>
+      </article>
+    </section>
+  </main>
+
+  <footer class="site">
+    <div class="container">
+      <div>
+        <h4>Site</h4>
+        <ul>
+          <li><a href="/about.html">About</a></li>
+          <li><a href="/blog/">Blog</a></li>
+          <li><a href="/projects.html">Projects</a></li>
+          <li><a href="/downloads/">Downloads</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Tools</h4>
+        <ul>
+          <li><a href="/status">Status endpoint</a></li>
+          <li><a href="/echo.php">Request echo</a></li>
+          <li><a href="/logs">Log viewer</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Internal</h4>
+        <ul>
+          <li><a href="/admin/">Admin console</a></li>
+          <li><a href="/whoami">Whoami</a></li>
+        </ul>
+      </div>
+      <p class="fingerprint">&copy; <span data-year>2026</span> the DVWS project &middot; proudly insecure since 2024 &middot; powered by <code>DVWS/1.0</code></p>
+    </div>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

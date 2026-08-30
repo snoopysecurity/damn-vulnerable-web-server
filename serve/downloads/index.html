@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Downloads | DVWS</title>
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+  <header class="site">
+    <div class="container">
+      <a class="brand" href="/"><img src="/static/logo.svg" alt="" width="28" height="28">Damn Vulnerable Web Server</a>
+      <nav>
+        <a href="/">Home</a>
+        <a href="/about.html">About</a>
+        <a href="/blog/">Blog</a>
+        <a href="/projects.html">Projects</a>
+        <a href="/downloads/">Downloads</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <section class="hero">
+      <h1>Downloads</h1>
+      <p class="lead">Guides, sample data, and the press kit. Everything
+        here is served straight from the docroot -- what you see is what
+        the file server gives you.</p>
+    </section>
+
+    <section>
+      <table>
+        <tr><th>File</th><th>Size</th><th>Description</th></tr>
+        <tr>
+          <td><a href="/downloads/dvws-quickstart.txt" download>dvws-quickstart.txt</a></td>
+          <td>1.6 KB</td>
+          <td>Getting-started guide: routes, startup, workshop rules.</td>
+        </tr>
+        <tr>
+          <td><a href="/downloads/sample-access-log.csv" download>sample-access-log.csv</a></td>
+          <td>811 B</td>
+          <td>Anonymized sample of one day of access-log entries (CSV).</td>
+        </tr>
+        <tr>
+          <td><a href="/downloads/dvws-press-kit.zip" download>dvws-press-kit.zip</a></td>
+          <td>4.3 KB</td>
+          <td>Logo (SVG), stylesheet, site script, quickstart guide.</td>
+        </tr>
+      </table>
+    </section>
+
+  </main>
+
+  <footer class="site">
+    <div class="container">
+      <div>
+        <h4>Site</h4>
+        <ul>
+          <li><a href="/about.html">About</a></li>
+          <li><a href="/blog/">Blog</a></li>
+          <li><a href="/projects.html">Projects</a></li>
+          <li><a href="/downloads/">Downloads</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Tools</h4>
+        <ul>
+          <li><a href="/status">Status endpoint</a></li>
+          <li><a href="/echo.php">Request echo</a></li>
+          <li><a href="/logs">Log viewer</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Internal</h4>
+        <ul>
+          <li><a href="/admin/">Admin console</a></li>
+          <li><a href="/whoami">Whoami</a></li>
+        </ul>
+      </div>
+      <p class="fingerprint">&copy; <span data-year>2026</span> the DVWS project &middot; proudly insecure since 2024 &middot; powered by <code>DVWS/1.0</code></p>
+    </div>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

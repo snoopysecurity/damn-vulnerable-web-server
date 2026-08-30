@@ -20,10 +20,13 @@
 namespace handlers {
 
 void system_status(int client_socket, const HttpRequest& req) {
+    const bool head_only = (req.method == "HEAD");
     const char* request = req.raw;
     const char* status_pos = strstr(request, "status=");
     if (!status_pos) {
-        http::send_ok(client_socket, "Missing status parameter.");
+        http::send_json(client_socket,
+                        "{\"status\": \"error\", \"message\": \"Missing status parameter.\"}",
+                        "", head_only);
         return;
     }
     status_pos += 7; // skip "status="
@@ -38,14 +41,19 @@ void system_status(int client_socket, const HttpRequest& req) {
     }
     status_msg[i] = '\0';
 
-    http::send_ok(client_socket, "System Status Updated.");
+    http::send_json(client_socket,
+                    "{\"status\": \"ok\", \"message\": \"System status updated.\"}",
+                    "", head_only);
     free(status_msg);
 }
 
 void upload_file(int client_socket, const HttpRequest& req) {
+    const bool head_only = (req.method == "HEAD");
     std::string content_length_str = req.header("Content-Length");
     if (content_length_str.empty()) {
-        http::send_ok(client_socket, "Missing Content-Length.");
+        http::send_json(client_socket,
+                        "{\"status\": \"error\", \"message\": \"Missing Content-Length.\"}",
+                        "", head_only);
         return;
     }
 
@@ -55,7 +63,9 @@ void upload_file(int client_socket, const HttpRequest& req) {
     char* file_buffer = (char*)malloc(buffer_size);
     if (file_buffer) {
         recv(client_socket, file_buffer, content_len, 0);
-        http::send_ok(client_socket, "Upload processed.");
+        http::send_json(client_socket,
+                        "{\"status\": \"ok\", \"message\": \"Upload processed.\"}",
+                        "", head_only);
         free(file_buffer);
     }
 }
@@ -79,7 +89,10 @@ void add_rule(int client_socket, const HttpRequest& req) {
         cgi_rules().push_back(rule);
     }
 
-    http::send_ok(client_socket, "Rule added.");
+    http::send_json(client_socket,
+                    "{\"status\": \"ok\", \"message\": \"Rule added.\", \"rules\": " +
+                        std::to_string(cgi_rules().size()) + "}",
+                    "", req.method == "HEAD");
 }
 
 void whoami(int client_socket, const HttpRequest& req) {
@@ -88,11 +101,13 @@ void whoami(int client_socket, const HttpRequest& req) {
     std::string auth = req.header("Authorization");
     std::string username, password;
     if (auth.empty() || !extract_username_password(auth, username, password)) {
-        http::send_status(client_socket, "401 Unauthorized", "text/plain", "no credentials");
+        http::send_status(client_socket, "401 Unauthorized", "application/json",
+                          "{\"status\": \"error\", \"message\": \"no credentials\"}",
+                          "", req.method == "HEAD");
         return;
     }
     // handle_authentication() leaks 64 bytes past the std::string internals.
-    handle_authentication(client_socket, username);
+    handle_authentication(client_socket, username, req.method == "HEAD");
 }
 
 }

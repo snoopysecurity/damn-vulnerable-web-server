@@ -25,6 +25,9 @@ struct HttpRequest {
     // Returns false if the request line could not be parsed at all.
     // On success, method/clean_path/query are populated and the
     // strcpy-based BOF has already had its chance to fire.
+    // On failure, method holds the request-line token when the line was
+    // well-formed but the method is unsupported (caller answers 405),
+    // or "" when the line is malformed (caller answers 400).
     static bool parse(const char* raw_request, HttpRequest& out);
 
     // Convenience helpers that just re-run the utility parsers over `raw`.

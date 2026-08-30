@@ -1,0 +1,54 @@
+DVWS/1.0 -- Quickstart Guide
+============================
+
+Welcome to Damn Vulnerable Web Server. This box is intentionally
+insecure. Point your tools at it and leave production alone.
+
+
+1. WHAT YOU GET
+---------------
+
+  /               this site (static HTML)
+  /about.html     project background
+  /blog/          build notes and post-mortems
+  /projects.html  everything hosted on this box
+  /downloads/     this guide and friends
+  /status         JSON status document (no auth)
+  /logs           access log viewer (no auth, takes ?filter=)
+  /echo.php       PHP request echo / debug page
+  /admin/         admin console (HTTP Basic auth)
+  /whoami         authenticated identity utility
+
+
+2. STARTING THE SERVER
+----------------------
+
+  ./damn_vulnerable_web_server <docroot> <port>
+
+The docroot is the directory to serve, with a trailing slash
+(for example ./serve/). It is copied into a fixed-size global at
+startup -- see challenge 13 for why that is exciting.
+
+Graceful shutdown: SIGTERM or SIGINT. The server closes the listen
+socket, drains in-flight requests, and exits 0.
+
+
+3. WORKSHOP RULES
+-----------------
+
+  * Everything is fair game: the source is right there in the repo.
+  * If you break it, restart it. Crashes cost you nothing.
+  * The admin console uses HTTP Basic. The credentials are in the
+    source, because of course they are.
+  * /status tells you the version, docroot, and interpreter path.
+    Monitors love it; so do recon frameworks.
+
+
+4. HOUSEKEEPING
+---------------
+
+Uptime is short on purpose; sessions live in memory; the access log
+is /tmp/server.log and grows forever. Treat the whole box as
+ephemeral.
+
+-- the DVWS team (see /humans.txt)

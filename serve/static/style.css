@@ -1,0 +1,196 @@
+/* DVWS/1.0 site stylesheet
+ * Chrome matches the server's generated error pages (system-ui stack,
+ * #f4f4f4 canvas, white cards, #c0392b accent) so every surface of the
+ * site -- including 4xx/5xx answers -- looks like one product.
+ */
+
+:root {
+  --bg: #f4f4f4;
+  --card: #ffffff;
+  --border: #dddddd;
+  --ink: #333333;
+  --ink-soft: #666666;
+  --accent: #c0392b;
+  --dark: #2c3e50;
+  --dark-soft: #34495e;
+  --mono: ui-monospace, Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  margin: 0;
+  line-height: 1.6;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+.container {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* -- header / nav --------------------------------------------------- */
+
+header.site {
+  background: var(--dark);
+  color: #fff;
+  border-bottom: 3px solid var(--accent);
+}
+
+header.site .container {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  min-height: 56px;
+  flex-wrap: wrap;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 17px;
+  color: #fff;
+}
+
+.brand img { display: block; }
+
+header.site nav { margin-left: auto; }
+
+header.site nav a {
+  color: #d5dbe0;
+  font-size: 14px;
+  padding: 6px 10px;
+  border-radius: 4px;
+}
+
+header.site nav a:hover { color: #fff; background: var(--dark-soft); text-decoration: none; }
+header.site nav a[aria-current="page"] { color: #fff; background: var(--accent); }
+
+/* -- hero ------------------------------------------------------------- */
+
+.hero { padding: 56px 0 40px; }
+.hero h1 { font-size: 40px; margin: 0 0 12px; letter-spacing: -1px; }
+.hero p.lead { font-size: 19px; color: var(--ink-soft); max-width: 640px; margin: 0 0 24px; }
+
+.badge {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 12px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 3px 12px;
+  color: var(--ink-soft);
+  margin-right: 6px;
+}
+
+.badge.red { color: var(--accent); border-color: var(--accent); }
+
+.actions { margin-top: 24px; }
+.actions a {
+  display: inline-block;
+  padding: 10px 22px;
+  border-radius: 6px;
+  font-size: 15px;
+  margin-right: 10px;
+  border: 1px solid var(--accent);
+}
+.actions a.primary { background: var(--accent); color: #fff; }
+.actions a.primary:hover { background: #a33025; text-decoration: none; }
+.actions a.ghost { color: var(--accent); }
+.actions a.ghost:hover { background: #fff; text-decoration: none; }
+
+/* -- cards / sections -------------------------------------------------- */
+
+section { padding: 24px 0; }
+section h2 { font-size: 24px; margin: 0 0 16px; letter-spacing: -0.5px; }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px 24px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.card h3 { margin: 0 0 8px; font-size: 17px; }
+.card p { margin: 0; font-size: 14px; color: var(--ink-soft); }
+.card .more { display: inline-block; margin-top: 12px; font-size: 14px; }
+
+dl.info { display: grid; grid-template-columns: max-content 1fr; gap: 4px 18px; margin: 0; }
+dl.info dt { font-family: var(--mono); font-size: 13px; color: var(--ink-soft); }
+dl.info dd { margin: 0; font-size: 14px; }
+
+/* -- tables ------------------------------------------------------------ */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+th, td {
+  text-align: left;
+  padding: 10px 14px;
+  font-size: 14px;
+  border-bottom: 1px solid #eee;
+}
+
+th { background: #fafafa; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--ink-soft); }
+tr:last-child td { border-bottom: 0; }
+
+/* -- blog / prose -------------------------------------------------------- */
+
+article.post { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 32px 40px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06); }
+article.post h1 { font-size: 30px; margin: 0 0 6px; letter-spacing: -0.5px; }
+article.post .meta { font-size: 13px; color: var(--ink-soft); margin-bottom: 24px; }
+article.post h2 { font-size: 20px; margin-top: 28px; }
+article.post code { font-family: var(--mono); font-size: 13px; background: #f8f8f8; border: 1px solid #eee; border-radius: 4px; padding: 1px 5px; }
+article.post pre { font-family: var(--mono); font-size: 13px; background: #f8f8f8; border: 1px solid #eee; border-radius: 4px; padding: 12px 16px; overflow-x: auto; }
+article.post blockquote { border-left: 4px solid var(--accent); margin: 16px 0; padding: 4px 18px; color: var(--ink-soft); background: #fafafa; }
+
+ul.posts { list-style: none; padding: 0; margin: 0; }
+ul.posts li { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 18px 24px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06); }
+ul.posts .meta { font-size: 12px; color: var(--ink-soft); font-family: var(--mono); }
+
+/* -- footer -------------------------------------------------------------- */
+
+footer.site {
+  background: var(--dark);
+  color: #b9c2c9;
+  margin-top: 48px;
+  padding: 32px 0;
+  font-size: 13px;
+}
+
+footer.site .container { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; }
+footer.site h4 { color: #fff; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 10px; }
+footer.site ul { list-style: none; margin: 0; padding: 0; }
+footer.site a { color: #d5dbe0; }
+footer.site .fingerprint { grid-column: 1 / -1; border-top: 1px solid var(--dark-soft); padding-top: 16px; margin-top: 8px; color: #8a959d; }
+footer.site .fingerprint code { font-family: var(--mono); color: #e74c3c; }
+
+@media (max-width: 720px) {
+  footer.site .container { grid-template-columns: 1fr; }
+  .hero h1 { font-size: 30px; }
+  article.post { padding: 22px 22px; }
+}

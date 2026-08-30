@@ -4,20 +4,33 @@
 // All routing/vuln logic lives under router.cpp, handlers/, and http/.
 #include <arpa/inet.h>
 #include <csignal>
+#include <poll.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include <cerrno>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
 
+#include "http/response.h"
 #include "router.h"
 #include "server_config.h"
 #include "thread_pool.h"
 
 #define MAX_REQUEST_SIZE 1024
 #define N_WORKER_THREADS 8
+
+// Graceful shutdown (REALISM_PLAN T9): SIGTERM/SIGINT set a flag; the
+// accept loop polls with a timeout so it re-checks the flag at least
+// twice a second, then drains workers before exiting. Docker's
+// STOPSIGNAL SIGTERM lands here.
+static volatile sig_atomic_t g_shutdown_requested = 0;
+
+static void request_shutdown(int) {
+    g_shutdown_requested = 1;
+}
 
 // AFL++ persistent-mode hooks. Compiled unconditionally: when the binary
 // is built without afl-clang-fast these expand to nothing at link time
@@ -96,6 +109,8 @@ int main(int argc, char* argv[]) {
     // Handlers that care about robust delivery should additionally pass
     // MSG_NOSIGNAL to their send() calls on Linux.
     signal(SIGPIPE, SIG_IGN);
+    signal(SIGTERM, request_shutdown);
+    signal(SIGINT, request_shutdown);
 
     int server_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (server_socket < 0) {
@@ -123,12 +138,28 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    std::cout << "Server started on port " << port
-              << " with " << N_WORKER_THREADS << " workers" << std::endl;
+    // nginx-style startup banner (REALISM_PLAN T9).
+    std::cout << http::kServerBanner << " (damn-vulnerable-web-server) starting up\n"
+              << "  docroot:   " << g_config.server_dir << "\n"
+              << "  listening: 0.0.0.0:" << port << "\n"
+              << "  workers:   " << N_WORKER_THREADS << "\n"
+              << "ready to accept connections" << std::endl;
 
     ThreadPool pool(N_WORKER_THREADS);
 
-    while (true) {
+    while (!g_shutdown_requested) {
+        // Poll with a timeout so a shutdown request is noticed even while
+        // no connections are arriving (signal() installs the handler with
+        // SA_RESTART, so we cannot rely on EINTR waking us).
+        struct pollfd pfd = {server_socket, POLLIN, 0};
+        int ready = poll(&pfd, 1, 500);
+        if (ready < 0) {
+            if (errno == EINTR) continue;
+            perror("Failed to poll listen socket");
+            continue;
+        }
+        if (ready == 0) continue;  // timeout; loop re-checks the flag
+
         struct sockaddr_in client_address{};
         socklen_t client_address_len = sizeof(client_address);
         int client_socket = accept(server_socket,
@@ -156,6 +187,8 @@ int main(int argc, char* argv[]) {
         });
     }
 
+    std::cout << "shutdown requested: closing the listen socket and draining "
+                 "workers" << std::endl;
     close(server_socket);
     return 0;
 }

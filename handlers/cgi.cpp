@@ -20,7 +20,9 @@ bool cgi_dispatch(int client_socket, const HttpRequest& req) {
             if (exec->callback) {
                 exec->callback(req.raw);  // controlled call!
             }
-            http::send_ok(client_socket, "Executed.");
+            http::send_json(client_socket,
+                            "{\"status\": \"ok\", \"message\": \"Executed.\"}",
+                            "", req.method == "HEAD");
             return true;
         }
     }

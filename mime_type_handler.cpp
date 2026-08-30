@@ -11,34 +11,48 @@
 #include <sys/types.h>
 
 const char* get_content_type(const char* file_path) {
-    const char* content_type = "text/plain"; // Default content type
+    // nginx-flavoured mapping table (REALISM_PLAN T7). Text types carry an
+    // explicit charset; unknown extensions fall back to a binary stream
+    // like a real server's default_type, not text/plain.
+    static const struct {
+        const char* ext;
+        const char* type;
+    } kTypes[] = {
+        {".html", "text/html; charset=utf-8"},
+        {".htm",  "text/html; charset=utf-8"},
+        {".css",  "text/css; charset=utf-8"},
+        {".js",   "application/javascript; charset=utf-8"},
+        {".mjs",  "application/javascript; charset=utf-8"},
+        {".json", "application/json; charset=utf-8"},
+        {".txt",  "text/plain; charset=utf-8"},
+        {".csv",  "text/csv; charset=utf-8"},
+        {".md",   "text/plain; charset=utf-8"},
+        {".xml",  "application/xml; charset=utf-8"},
+        {".svg",  "image/svg+xml"},
+        {".ico",  "image/x-icon"},
+        {".png",  "image/png"},
+        {".gif",  "image/gif"},
+        {".jpeg", "image/jpeg"},
+        {".jpg",  "image/jpeg"},
+        {".webp", "image/webp"},
+        {".pdf",  "application/pdf"},
+        {".zip",  "application/zip"},
+        {".gz",   "application/gzip"},
+        {".tar",  "application/x-tar"},
+        {".mp4",  "video/mp4"},
+        {".woff", "font/woff"},
+        {".woff2","font/woff2"},
+    };
+
     const char* extension = strrchr(file_path, '.');
     if (extension != nullptr) {
-        if (strcmp(extension, ".html") == 0) {
-            content_type = "text/html";
-        } else if (strcmp(extension, ".jpeg") == 0 || strcmp(extension, ".jpg") == 0) {
-            content_type = "image/jpeg";
-        } else if (strcmp(extension, ".png") == 0) {
-            content_type = "image/png";
-        } else if (strcmp(extension, ".gif") == 0) {
-            content_type = "image/gif";
-        } else if (strcmp(extension, ".txt") == 0) {
-            content_type = "text/plain";
-        } else if (strcmp(extension, ".css") == 0) {
-            content_type = "text/css";
-        } else if (strcmp(extension, ".js") == 0) {
-            content_type = "application/javascript";
-        } else if (strcmp(extension, ".json") == 0) {
-            content_type = "application/json";
-        } else if (strcmp(extension, ".xml") == 0) {
-            content_type = "application/xml";
-        } else if (strcmp(extension, ".pdf") == 0) {
-            content_type = "application/pdf";
-        } else if (strcmp(extension, ".zip") == 0) {
-            content_type = "application/zip";
+        for (const auto& entry : kTypes) {
+            if (strcmp(extension, entry.ext) == 0) {
+                return entry.type;
+            }
         }
     }
-    return content_type;
+    return "application/octet-stream";
 }
 
 bool check_php_file(const char* file_path) {
@@ -46,7 +60,7 @@ bool check_php_file(const char* file_path) {
     return (extension != nullptr && strcmp(extension, ".php") == 0);
 }
 
-void handle_php_file(FILE* file, int* client_socket, const char* response_header) {
+void handle_php_file(FILE* file, int* client_socket, const char* response_header, int send_body) {
     pid_t pid = getpid();
 
     char temp_file_path[200];
@@ -85,10 +99,13 @@ void handle_php_file(FILE* file, int* client_socket, const char* response_header
     char php_buffer[1024];
     size_t php_bytes_read;
     while ((php_bytes_read = fread(php_buffer, 1, sizeof(php_buffer), php_output)) > 0) {
-        if (send(*client_socket, php_buffer, php_bytes_read, DVWS_SEND_FLAGS) < 0) {
-            perror("Failed to send PHP output");
-            return;
+        if (send_body) {
+            if (send(*client_socket, php_buffer, php_bytes_read, DVWS_SEND_FLAGS) < 0) {
+                perror("Failed to send PHP output");
+                return;
+            }
         }
+        // HEAD: drain interpreter output so pclose() sees a clean EOF.
     }
 
     fclose(file);

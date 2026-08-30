@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<!-- /404.html -- the site's own "lost?" page. The server's generated 404
+     (with its classic path reflection) is served for missing documents;
+     this page exists for humans who wander here directly. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>404 Not Found | DVWS</title>
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+  <header class="site">
+    <div class="container">
+      <a class="brand" href="/"><img src="/static/logo.svg" alt="" width="28" height="28">Damn Vulnerable Web Server</a>
+      <nav>
+        <a href="/">Home</a>
+        <a href="/about.html">About</a>
+        <a href="/blog/">Blog</a>
+        <a href="/projects.html">Projects</a>
+        <a href="/downloads/">Downloads</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="hero">
+      <h1>404</h1>
+      <p class="lead">The page you asked for is not on this server.</p>
+      <div class="actions">
+        <a class="primary" href="/">Back to the front page</a>
+        <a class="ghost" href="/projects.html">Browse the project index</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site">
+    <div class="container">
+      <div>
+        <h4>Site</h4>
+        <ul>
+          <li><a href="/about.html">About</a></li>
+          <li><a href="/blog/">Blog</a></li>
+          <li><a href="/projects.html">Projects</a></li>
+          <li><a href="/downloads/">Downloads</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Tools</h4>
+        <ul>
+          <li><a href="/status">Status endpoint</a></li>
+          <li><a href="/echo.php">Request echo</a></li>
+          <li><a href="/logs">Log viewer</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Meta</h4>
+        <ul>
+          <li><a href="/humans.txt">humans.txt</a></li>
+          <li><a href="/robots.txt">robots.txt</a></li>
+        </ul>
+      </div>
+      <p class="fingerprint">Proudly insecure since 2024 -- <code>DVWS/1.0</code></p>
+    </div>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

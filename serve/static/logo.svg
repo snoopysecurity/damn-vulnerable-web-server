@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="DVWS logo">
+  <!-- DVWS/1.0 logo: a cracked shield. -->
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e74c3c"/>
+      <stop offset="1" stop-color="#c0392b"/>
+    </linearGradient>
+  </defs>
+  <path d="M32 4 L56 12 L56 30 C56 46 46 56 32 60 C18 56 8 46 8 30 L8 12 Z"
+        fill="url(#g)" stroke="#922b21" stroke-width="2"/>
+  <!-- the crack -->
+  <path d="M30 8 L36 20 L28 26 L38 40 L32 44 L34 56"
+        fill="none" stroke="#2c3e50" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="32" cy="52" r="0" fill="#2c3e50"/>
+</svg>

@@ -10,6 +10,7 @@
 #include "handlers/cgi.h"
 #include "handlers/static_files.h"
 #include "handlers/status.h"
+#include "http/response.h"
 #include "request_logger.h"
 #include "session_manager.h"
 #include "utils.h"
@@ -57,9 +58,27 @@ bool require_basic_auth(int client_socket, const HttpRequest& req) {
 void dispatch(int client_socket, const char* raw_request) {
     HttpRequest req;
     if (!HttpRequest::parse(raw_request, req)) {
+        // Real servers answer; they don't drop the connection silently.
+        // A well-formed request line with an unsupported method gets a
+        // 405 (+ Allow); anything malformed gets a 400. Bodies are static
+        // strings: no request data is reflected into the response.
         // Note: not a syscall failure, so perror() would print a bogus
         // errno string. Use fprintf on stderr instead.
-        fprintf(stderr, "Invalid request line; dropping connection.\n");
+        if (!req.method.empty()) {
+            fprintf(stderr, "Unsupported method \"%s\"; answering 405.\n",
+                    req.method.c_str());
+            http::send_status(client_socket, "405 Method Not Allowed",
+                              "text/html; charset=utf-8",
+                              http::error_page(405, "Method Not Allowed",
+                                               "This server supports GET, POST and HEAD requests only."),
+                              "Allow: GET, POST, HEAD\r\n");
+        } else {
+            fprintf(stderr, "Malformed request line; answering 400.\n");
+            http::send_status(client_socket, "400 Bad Request",
+                              "text/html; charset=utf-8",
+                              http::error_page(400, "Bad Request",
+                                               "The request line could not be understood by the server."));
+        }
         close(client_socket);
         return;
     }

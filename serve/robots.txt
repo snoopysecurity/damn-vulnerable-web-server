@@ -1,0 +1,7 @@
+# robots.txt for DVWS/1.0
+# Crawlers: the admin console is not public content. Please stay out.
+
+User-agent: *
+Disallow: /admin/
+
+# Sitemap: none -- this site is small enough to crawl from the front page.

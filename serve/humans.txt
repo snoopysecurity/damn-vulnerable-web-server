@@ -1,0 +1,20 @@
+/* humans.txt for DVWS/1.0 -- the people behind the server */
+
+/* TEAM */
+
+Maintainer
+  D. Walsh -- C++ core, HTTP plumbing
+  K. Ito -- PHP layer, admin console
+  M. Reyes -- site content, docs
+
+/* SITE */
+
+Standards: HTML5, CSS3, vanilla JS
+Components: hand-rolled, no frameworks
+Software: Damn Vulnerable Web Server (DVWS/1.0)
+Last update: 2026-08-30
+Do not copy: it is intentionally insecure. Seriously.
+
+/* THANKS */
+
+Everyone who reported a bug that we refused to fix on purpose.

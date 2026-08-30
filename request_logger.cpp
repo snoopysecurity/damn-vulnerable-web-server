@@ -3,6 +3,7 @@
 #include <fstream>
 #include <iostream>
 #include "authentication.h" // Assuming extract_query_parameters is defined here
+#include "http/response.h"
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <cstring>       // for strerror()
@@ -135,8 +136,8 @@ void handle_log_viewer(int client_socket, const std::string& request) {
     // Execute the command using popen
     FILE* pipe = popen(command.c_str(), "r");
     if (!pipe) {
-        std::string error_msg = "HTTP/1.1 500 Internal Server Error\r\n\r\nFailed to read logs.\n";
-        send(client_socket, error_msg.c_str(), error_msg.length(), DVWS_SEND_FLAGS);
+        http::send_status(client_socket, "500 Internal Server Error",
+                          "text/plain; charset=utf-8", "Failed to read logs.\n");
         return;
     }
 
@@ -149,14 +150,16 @@ void handle_log_viewer(int client_socket, const std::string& request) {
     pclose(pipe);
     std::string result = result_stream.str();
 
-    std::string response;
-    if (result.empty()) {
-        response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nNo matching log entries found.\n";
-    } else {
-        response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\n" + result;
-    }
+    // HEAD requests get headers only; the grep above still ran (the
+    // command-injection primitive is method-agnostic).
+    bool head_only = request.rfind("HEAD ", 0) == 0;
 
-    send(client_socket, response.c_str(), response.length(), DVWS_SEND_FLAGS);
+    // Standard header set comes from http::send_status (REALISM_PLAN T4).
+    std::string body = result.empty()
+        ? "No matching log entries found.\n"
+        : result;
+    http::send_status(client_socket, "200 OK", "text/plain; charset=utf-8",
+                      body, "", head_only);
 }
 
 // Handler for Logger Configuration (The UAF Trigger)
@@ -177,7 +180,7 @@ void handle_logger_config(int client_socket, const std::string& request) {
         strcpy(current_log_format->format_string, format.c_str());
         current_log_format->log_func = default_custom_logger;
         
-        response_body = "Log format updated.";
+        response_body = "{\"status\": \"ok\", \"message\": \"Log format updated.\"}";
     } 
     else if (action == "reset") {
         if (current_log_format != nullptr) {
@@ -185,12 +188,16 @@ void handle_logger_config(int client_socket, const std::string& request) {
             // VULNERABILITY: Dangling pointer!
             // We do NOT set current_log_format = nullptr;
         }
-        response_body = "Log format reset (memory freed).";
+        response_body = "{\"status\": \"ok\", \"message\": \"Log format reset (memory freed).\"}";
     } 
     else {
-        response_body = "Unknown action. Use ?action=set&format=... or ?action=reset";
+        response_body = "{\"status\": \"error\", \"message\": \"Unknown action. Use ?action=set&format=... or ?action=reset\"}";
     }
 
-    std::string response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\n" + response_body;
-    send(client_socket, response.c_str(), response.length(), DVWS_SEND_FLAGS);
+    // HEAD requests get headers only; the alloc/free logic above ran
+    // identically (the UAF primitive is method-agnostic). JSON body per
+    // REALISM_PLAN T8; standard header set via http::send_status.
+    bool head_only = request.rfind("HEAD ", 0) == 0;
+    http::send_status(client_socket, "200 OK", "application/json",
+                      response_body, "", head_only);
 }

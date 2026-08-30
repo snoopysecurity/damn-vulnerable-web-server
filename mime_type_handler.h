@@ -10,7 +10,9 @@ extern "C" {
 
 const char* get_content_type(const char* file_path);
 bool check_php_file(const char* file_path);
-void handle_php_file(FILE* file, int* client_socket, const char* response_header);
+// send_body: 0 for HEAD requests (interpreter still runs, output is
+// drained but not sent), 1 otherwise.
+void handle_php_file(FILE* file, int* client_socket, const char* response_header, int send_body);
 
 #ifdef __cplusplus
 }
