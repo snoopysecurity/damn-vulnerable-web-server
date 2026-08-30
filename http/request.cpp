@@ -91,7 +91,7 @@ bool HttpRequest::parse(const char* raw_request, HttpRequest& out) {
     // Normalize the path to start with '/'.
     if (out.clean_path[0] != '\0' && out.clean_path[0] != '/') {
         char temp_path[200];
-        snprintf(temp_path, sizeof(temp_path), "/%s", out.clean_path);
+        snprintf(temp_path, sizeof(temp_path), "/%.198s", out.clean_path);
         strcpy(out.clean_path, temp_path);
     }
 

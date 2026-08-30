@@ -123,7 +123,7 @@ static void serve_file(int client_socket, const char* file_path,
             char candidate[600];
             snprintf(candidate, sizeof(candidate), "%s%s%s", resolved_path, slash, doc);
             if (stat(candidate, &path_stat) == 0 && S_ISREG(path_stat.st_mode)) {
-                snprintf(resolved_path, sizeof(resolved_path), "%s", candidate);
+                snprintf(resolved_path, sizeof(resolved_path), "%.511s", candidate);
                 index_found = true;
                 break;
             }

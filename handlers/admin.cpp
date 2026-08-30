@@ -12,6 +12,7 @@
 #include "../utils.h"
 
 #include <cstdio>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <string>

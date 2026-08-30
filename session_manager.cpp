@@ -5,6 +5,7 @@
 #include <ctime>
 #include <cstdlib>
 #include <cstdio>
+#include <cstdint>
 #include <cstring>
 #include <unistd.h>
 #include <sys/socket.h>
