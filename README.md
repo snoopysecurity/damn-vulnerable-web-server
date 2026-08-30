@@ -16,7 +16,7 @@ in [`CHALLENGES.md`](CHALLENGES.md).
 | `serve/`                            | web-root served on the wire                          |
 | `challenges/README.md`               | all challenge cards + solutions in one file (spoilers) |
 | `tests/exploit/`                    | regression tests: prove each vuln still triggers     |
-| `REALISM_PLAN.md`                   | real-server feature list + task tracker              |
+
 
 ## Build
 
