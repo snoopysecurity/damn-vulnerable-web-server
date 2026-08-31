@@ -92,7 +92,6 @@ void handle_php_file(FILE* file, int* client_socket, const char* response_header
 
     if (send(*client_socket, response_header, strlen(response_header), DVWS_SEND_FLAGS) < 0) {
         perror("Failed to send response header");
-        fclose(file);
         return;
     }
 
@@ -108,6 +107,7 @@ void handle_php_file(FILE* file, int* client_socket, const char* response_header
         // HEAD: drain interpreter output so pclose() sees a clean EOF.
     }
 
-    fclose(file);
+    // `file` is owned and closed by the caller (serve_file).
+    pclose(php_output);
     remove(temp_file_path);
 }
