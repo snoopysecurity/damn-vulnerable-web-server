@@ -11,13 +11,13 @@
 #include "../logging_sink.h"
 #include "../utils.h"
 
-#include <cstdio>
+#include <sys/socket.h>
+#include <unistd.h>
 #include <cstdint>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <string>
-#include <sys/socket.h>
-#include <unistd.h>
 
 namespace handlers {
 
@@ -67,11 +67,11 @@ void system_status(int client_socket, const HttpRequest& req) {
     const char* status_pos = strstr(request, "status=");
     if (!status_pos) {
         http::send_json(client_socket,
-                        "{\"status\": \"error\", \"message\": \"Missing status parameter.\"}",
-                        "", head_only);
+                        "{\"status\": \"error\", \"message\": \"Missing status parameter.\"}", "",
+                        head_only);
         return;
     }
-    status_pos += 7; // skip "status="
+    status_pos += 7;  // skip "status="
 
     // Size the decode buffer with the shared estimator, then decode
     // into it. estimate_decoded_length() counts every '%' as the start
@@ -82,15 +82,14 @@ void system_status(int client_socket, const HttpRequest& req) {
     char* status_msg = (char*)malloc(decoded_len + 1);
     if (status_msg == nullptr) {
         http::send_json(client_socket,
-                        "{\"status\": \"error\", \"message\": \"Allocation failed.\"}",
-                        "", head_only);
+                        "{\"status\": \"error\", \"message\": \"Allocation failed.\"}", "",
+                        head_only);
         return;
     }
     decode_status_param(status_pos, status_msg);
     fprintf(stderr, "[status] %s\n", status_msg);
 
-    http::send_json(client_socket,
-                    "{\"status\": \"ok\", \"message\": \"System status updated.\"}",
+    http::send_json(client_socket, "{\"status\": \"ok\", \"message\": \"System status updated.\"}",
                     "", head_only);
     free(status_msg);
 }
@@ -100,29 +99,26 @@ void upload_file(int client_socket, const HttpRequest& req) {
     std::string content_length_str = req.header("Content-Length");
     if (content_length_str.empty()) {
         http::send_json(client_socket,
-                        "{\"status\": \"error\", \"message\": \"Missing Content-Length.\"}",
-                        "", head_only);
+                        "{\"status\": \"error\", \"message\": \"Missing Content-Length.\"}", "",
+                        head_only);
         return;
     }
     std::string filename_length_str = req.header("X-Filename-Length");
     if (filename_length_str.empty()) {
         http::send_json(client_socket,
-                        "{\"status\": \"error\", \"message\": \"Missing X-Filename-Length.\"}",
-                        "", head_only);
+                        "{\"status\": \"error\", \"message\": \"Missing X-Filename-Length.\"}", "",
+                        head_only);
         return;
     }
 
-    unsigned int content_len =
-        (unsigned int)strtoul(content_length_str.c_str(), nullptr, 10);
-    unsigned int filename_len =
-        (unsigned int)strtoul(filename_length_str.c_str(), nullptr, 10);
+    unsigned int content_len = (unsigned int)strtoul(content_length_str.c_str(), nullptr, 10);
+    unsigned int filename_len = (unsigned int)strtoul(filename_length_str.c_str(), nullptr, 10);
 
     // The header, body length and filename length are summed in 32-bit
     // arithmetic. Declared lengths near UINT_MAX wrap the total to a
     // small allocation, while the copy below still uses the original
     // content_len for both the offset and the length.
-    uint32_t allocation =
-        (uint32_t)sizeof(UploadHeader) + content_len + filename_len;
+    uint32_t allocation = (uint32_t)sizeof(UploadHeader) + content_len + filename_len;
     char* file_buffer = (char*)malloc(allocation);
     if (file_buffer) {
         UploadHeader header{};
@@ -130,8 +126,7 @@ void upload_file(int client_socket, const HttpRequest& req) {
         header.filename_len = filename_len;
         memcpy(file_buffer, &header, sizeof(header));
         recv(client_socket, file_buffer + sizeof(UploadHeader), content_len, 0);
-        http::send_json(client_socket,
-                        "{\"status\": \"ok\", \"message\": \"Upload processed.\"}",
+        http::send_json(client_socket, "{\"status\": \"ok\", \"message\": \"Upload processed.\"}",
                         "", head_only);
         free(file_buffer);
     }
@@ -155,9 +150,10 @@ void add_rule(int client_socket, const HttpRequest& req) {
         cgi_rules().push_back(rule);
         route_types()[path] = RouteType::CGI;
     } else {
-        http::send_json(client_socket,
-                        "{\"status\": \"error\", \"message\": \"Unknown type. Use ?type=static or ?type=cgi\"}",
-                        "", req.method == "HEAD");
+        http::send_json(
+            client_socket,
+            "{\"status\": \"error\", \"message\": \"Unknown type. Use ?type=static or ?type=cgi\"}",
+            "", req.method == "HEAD");
         return;
     }
 
@@ -173,9 +169,10 @@ void update_rule(int client_socket, const HttpRequest& req) {
     std::string type = params["type"];
 
     if (route_types().find(path) == route_types().end()) {
-        http::send_json(client_socket,
-                        "{\"status\": \"error\", \"message\": \"No rule registered for that path.\"}",
-                        "", req.method == "HEAD");
+        http::send_json(
+            client_socket,
+            "{\"status\": \"error\", \"message\": \"No rule registered for that path.\"}", "",
+            req.method == "HEAD");
         return;
     }
 
@@ -185,9 +182,10 @@ void update_rule(int client_socket, const HttpRequest& req) {
     } else if (type == "cgi") {
         new_type = RouteType::CGI;
     } else {
-        http::send_json(client_socket,
-                        "{\"status\": \"error\", \"message\": \"Unknown type. Use ?type=static or ?type=cgi\"}",
-                        "", req.method == "HEAD");
+        http::send_json(
+            client_socket,
+            "{\"status\": \"error\", \"message\": \"Unknown type. Use ?type=static or ?type=cgi\"}",
+            "", req.method == "HEAD");
         return;
     }
 
@@ -197,9 +195,8 @@ void update_rule(int client_socket, const HttpRequest& req) {
     // based on the tag.
     route_types()[path] = new_type;
 
-    http::send_json(client_socket,
-                    "{\"status\": \"ok\", \"message\": \"Rule updated.\"}",
-                    "", req.method == "HEAD");
+    http::send_json(client_socket, "{\"status\": \"ok\", \"message\": \"Rule updated.\"}", "",
+                    req.method == "HEAD");
 }
 
 void logging(int client_socket, const HttpRequest& req) {
@@ -212,16 +209,17 @@ void logging(int client_socket, const HttpRequest& req) {
     if (output == "file") {
         install_log_sink(new FileLogSink());
         http::send_json(client_socket,
-                        "{\"status\": \"ok\", \"message\": \"Logging output set to file.\"}",
-                        "", req.method == "HEAD");
+                        "{\"status\": \"ok\", \"message\": \"Logging output set to file.\"}", "",
+                        req.method == "HEAD");
     } else if (output == "syslog") {
         install_log_sink(new SyslogLogSink());
         http::send_json(client_socket,
-                        "{\"status\": \"ok\", \"message\": \"Logging output set to syslog.\"}",
-                        "", req.method == "HEAD");
+                        "{\"status\": \"ok\", \"message\": \"Logging output set to syslog.\"}", "",
+                        req.method == "HEAD");
     } else {
         http::send_json(client_socket,
-                        "{\"status\": \"error\", \"message\": \"Unknown output. Use ?output=file or ?output=syslog\"}",
+                        "{\"status\": \"error\", \"message\": \"Unknown output. Use ?output=file "
+                        "or ?output=syslog\"}",
                         "", req.method == "HEAD");
     }
 }
@@ -233,8 +231,8 @@ void whoami(int client_socket, const HttpRequest& req) {
     std::string username, password;
     if (auth.empty() || !extract_username_password(auth, username, password)) {
         http::send_status(client_socket, "401 Unauthorized", "application/json",
-                          "{\"status\": \"error\", \"message\": \"no credentials\"}",
-                          "", req.method == "HEAD");
+                          "{\"status\": \"error\", \"message\": \"no credentials\"}", "",
+                          req.method == "HEAD");
         return;
     }
 
@@ -250,8 +248,7 @@ void whoami(int client_socket, const HttpRequest& req) {
     // HEAD requests send headers only; Content-Length still reports
     // the full record size.
     http::send_status(client_socket, "200 OK", "application/octet-stream",
-                      std::string(response, sizeof(response)), "",
-                      req.method == "HEAD");
+                      std::string(response, sizeof(response)), "", req.method == "HEAD");
 }
 
-}
+}  // namespace handlers

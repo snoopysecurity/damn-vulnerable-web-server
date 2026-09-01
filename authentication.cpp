@@ -2,27 +2,27 @@
 // Created by sams on 11/06/2023.
 //
 
-#include <iostream>
-#include <string>
-#include <cstring>
-#include <map>
-#include <sstream>
-#include <sys/socket.h>
+#include "authentication.h"
 #include <openssl/bio.h>
 #include <openssl/evp.h>
+#include <sys/socket.h>
 #include <cctype>
+#include <cstring>
+#include <iostream>
+#include <map>
+#include <sstream>
+#include <string>
 #include "base64.h"
-#include "authentication.h"
 #include "http/response.h"
-#include "utils.h"
 #include "net_compat.h"
+#include "utils.h"
 
 // Function to check if the provided username and password are valid
 int authenticate(const std::string& username, const std::string& password) {
     if (username == "admin" && password == "admin") {
-        return 1; // Successful login
+        return 1;  // Successful login
     } else {
-        return 0; // Login failed
+        return 0;  // Login failed
     }
 }
 
@@ -40,4 +40,3 @@ void send_basic_auth_prompt(int client_socket) {
         return;
     }
 }
-

@@ -24,11 +24,21 @@ std::string html_escape(const std::string& s) {
     out.reserve(s.size());
     for (char ch : s) {
         switch (ch) {
-            case '&':  out += "&amp;";  break;
-            case '<':  out += "&lt;";   break;
-            case '>':  out += "&gt;";   break;
-            case '"':  out += "&quot;"; break;
-            default:   out += ch;       break;
+            case '&':
+                out += "&amp;";
+                break;
+            case '<':
+                out += "&lt;";
+                break;
+            case '>':
+                out += "&gt;";
+                break;
+            case '"':
+                out += "&quot;";
+                break;
+            default:
+                out += ch;
+                break;
         }
     }
     return out;
@@ -68,17 +78,13 @@ void echo_request(int client_socket, const HttpRequest& req) {
     // Request line as received.
     page << "<h2>Request</h2>\n"
          << "<table><tr><th>Key</th><th>Value</th></tr>\n"
-         << "<tr><td>method</td><td><code>" << html_escape(req.method)
-         << "</code></td></tr>\n"
-         << "<tr><td>uri</td><td><code>" << html_escape(req.clean_path)
-         << "</code></td></tr>\n"
-         << "<tr><td>query</td><td><code>" << html_escape(req.query)
-         << "</code></td></tr>\n"
+         << "<tr><td>method</td><td><code>" << html_escape(req.method) << "</code></td></tr>\n"
+         << "<tr><td>uri</td><td><code>" << html_escape(req.clean_path) << "</code></td></tr>\n"
+         << "<tr><td>query</td><td><code>" << html_escape(req.query) << "</code></td></tr>\n"
          << "</table>\n";
 
     // Query parameters.
-    const std::map<std::string, std::string> params =
-        extract_query_parameters(req.raw);
+    const std::map<std::string, std::string> params = extract_query_parameters(req.raw);
     page << "<h2>GET</h2>\n";
     if (params.empty()) {
         page << "<p class='empty'>(none)</p>\n";
@@ -111,8 +117,7 @@ void echo_request(int client_socket, const HttpRequest& req) {
     strftime(now, sizeof(now), "%Y-%m-%dT%H:%M:%S%z", localtime(&t));
     page << "<h2>Server</h2>\n"
          << "<table><tr><th>Key</th><th>Value</th></tr>\n"
-         << "<tr><td>version</td><td><code>" << http::kServerBanner
-         << "</code></td></tr>\n"
+         << "<tr><td>version</td><td><code>" << http::kServerBanner << "</code></td></tr>\n"
          << "<tr><td>docroot</td><td><code>" << html_escape(g_config.server_dir)
          << "</code></td></tr>\n"
          << "<tr><td>cgi_helper</td><td><code>"
@@ -131,8 +136,8 @@ void echo_request(int client_socket, const HttpRequest& req) {
          << "</body>\n"
          << "</html>\n";
 
-    http::send_status(client_socket, "200 OK", "text/html; charset=utf-8",
-                      page.str(), "", head_only);
+    http::send_status(client_socket, "200 OK", "text/html; charset=utf-8", page.str(), "",
+                      head_only);
 }
 
-}
+}  // namespace handlers

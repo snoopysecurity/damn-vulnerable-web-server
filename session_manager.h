@@ -21,4 +21,4 @@ void set_session_cookie(int client_socket, const std::string& session_id);
 // Declare the function to extract session ID from cookies
 std::string get_session_id_from_cookie(const std::string& request);
 
-#endif // SESSION_MANAGER_H
+#endif  // SESSION_MANAGER_H

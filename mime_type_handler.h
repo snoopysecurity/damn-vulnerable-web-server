@@ -1,8 +1,8 @@
 #ifndef MIME_TYPE_HANDLER_H
 #define MIME_TYPE_HANDLER_H
 
-#include <cstdio>   // for FILE
-#include <cstdbool> // for bool in C++
+#include <cstdbool>  // for bool in C++
+#include <cstdio>    // for FILE
 
 #ifdef __cplusplus
 extern "C" {
@@ -19,4 +19,4 @@ void handle_cgi_helper(int client_socket, const char* request, int send_body);
 }
 #endif
 
-#endif // MIME_TYPE_HANDLER_H
+#endif  // MIME_TYPE_HANDLER_H

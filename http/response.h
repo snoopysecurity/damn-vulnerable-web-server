@@ -23,34 +23,30 @@ std::string http_date_now();
 // Consistent styled page for 301/400/403/404/405 responses. `detail` is
 // inline HTML; the 404/403 callers reflect the requested path in it,
 // everything else passes static strings only.
-std::string error_page(int status_code, const std::string& reason,
-                       const std::string& detail = "");
+std::string error_page(int status_code, const std::string& reason, const std::string& detail = "");
 
 // Send a full response with the given status line and body. Every response
 // carries Content-Type, Content-Length, Server, Date and Connection: close.
 // head_only (HEAD requests) sends the headers but suppresses the body
 // (Content-Length still reports what a GET would have returned).
 void send_status(int client_socket,
-                 const std::string& status_code,      // e.g. "200 OK"
-                 const std::string& content_type,
-                 const std::string& body,
-                 const std::string& extra_headers = "",
-                 bool head_only = false);
+                 const std::string& status_code,  // e.g. "200 OK"
+                 const std::string& content_type, const std::string& body,
+                 const std::string& extra_headers = "", bool head_only = false);
 
 inline void send_ok(int client_socket, const std::string& body,
-                    const std::string& extra_headers = "",
-                    bool head_only = false) {
-    send_status(client_socket, "200 OK", "text/plain; charset=utf-8", body, extra_headers, head_only);
+                    const std::string& extra_headers = "", bool head_only = false) {
+    send_status(client_socket, "200 OK", "text/plain; charset=utf-8", body, extra_headers,
+                head_only);
 }
 
 // API-style JSON response. Bodies are always static strings built by
 // the caller -- no request data is reflected into them.
 inline void send_json(int client_socket, const std::string& body,
-                      const std::string& extra_headers = "",
-                      bool head_only = false) {
+                      const std::string& extra_headers = "", bool head_only = false) {
     send_status(client_socket, "200 OK", "application/json", body, extra_headers, head_only);
 }
 
-}
+}  // namespace http
 
 #endif

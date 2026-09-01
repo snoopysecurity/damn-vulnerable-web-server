@@ -26,11 +26,11 @@ public:
 private:
     void worker_loop();
 
-    std::vector<std::thread>          workers_;
+    std::vector<std::thread> workers_;
     std::queue<std::function<void()>> tasks_;
-    std::mutex                        mtx_;
-    std::condition_variable           cv_;
-    bool                              shutdown_ = false;
+    std::mutex mtx_;
+    std::condition_variable cv_;
+    bool shutdown_ = false;
 };
 
 #endif

@@ -13,15 +13,15 @@
 #include "http/response.h"
 #include "mime_type_handler.h"
 #include "request_logger.h"
+#include "server_config.h"
 #include "session_manager.h"
 #include "utils.h"
-#include "server_config.h"
 
+#include <unistd.h>
 #include <cstdio>
 #include <cstring>
 #include <iostream>
 #include <string>
-#include <unistd.h>
 
 ServerConfig g_config;
 
@@ -34,11 +34,11 @@ struct AdminRoute {
 
 const AdminRoute kAdminRoutes[] = {
     {"/admin/system_status", handlers::system_status},
-    {"/admin/upload_file",   handlers::upload_file},
-    {"/admin/add_rule",      handlers::add_rule},
-    {"/admin/update_rule",   handlers::update_rule},
-    {"/admin/logging",       handlers::logging},
-    {"/whoami",              handlers::whoami},  // Basic-Auth protected
+    {"/admin/upload_file", handlers::upload_file},
+    {"/admin/add_rule", handlers::add_rule},
+    {"/admin/update_rule", handlers::update_rule},
+    {"/admin/logging", handlers::logging},
+    {"/whoami", handlers::whoami},  // Basic-Auth protected
 };
 
 bool require_basic_auth(int client_socket, const HttpRequest& req) {
@@ -48,8 +48,7 @@ bool require_basic_auth(int client_socket, const HttpRequest& req) {
         return false;
     }
     std::string username, password;
-    if (!extract_username_password(auth, username, password) ||
-        !authenticate(username, password)) {
+    if (!extract_username_password(auth, username, password) || !authenticate(username, password)) {
         send_basic_auth_prompt(client_socket);
         return false;
     }
@@ -68,19 +67,18 @@ void dispatch(int client_socket, const char* raw_request) {
         // Note: not a syscall failure, so perror() would print a bogus
         // errno string. Use fprintf on stderr instead.
         if (!req.method.empty()) {
-            fprintf(stderr, "Unsupported method \"%s\"; answering 405.\n",
-                    req.method.c_str());
-            http::send_status(client_socket, "405 Method Not Allowed",
-                              "text/html; charset=utf-8",
-                              http::error_page(405, "Method Not Allowed",
-                                               "This server supports GET, POST and HEAD requests only."),
-                              "Allow: GET, POST, HEAD\r\n");
+            fprintf(stderr, "Unsupported method \"%s\"; answering 405.\n", req.method.c_str());
+            http::send_status(
+                client_socket, "405 Method Not Allowed", "text/html; charset=utf-8",
+                http::error_page(405, "Method Not Allowed",
+                                 "This server supports GET, POST and HEAD requests only."),
+                "Allow: GET, POST, HEAD\r\n");
         } else {
             fprintf(stderr, "Malformed request line; answering 400.\n");
-            http::send_status(client_socket, "400 Bad Request",
-                              "text/html; charset=utf-8",
-                              http::error_page(400, "Bad Request",
-                                               "The request line could not be understood by the server."));
+            http::send_status(
+                client_socket, "400 Bad Request", "text/html; charset=utf-8",
+                http::error_page(400, "Bad Request",
+                                 "The request line could not be understood by the server."));
         }
         close(client_socket);
         return;
@@ -113,8 +111,7 @@ void dispatch(int client_socket, const char* raw_request) {
     // executable at a predictable /tmp path and executes it (the
     // insecure temp-file race lives in mime_type_handler.cpp).
     if (strcmp(req.clean_path, "/cgi-helper") == 0) {
-        handle_cgi_helper(client_socket, req.raw,
-                          req.method == "HEAD" ? 0 : 1);
+        handle_cgi_helper(client_socket, req.raw, req.method == "HEAD" ? 0 : 1);
         close(client_socket);
         return;
     }
@@ -126,8 +123,7 @@ void dispatch(int client_socket, const char* raw_request) {
     std::string set_cookie_header;
 
     // Authenticated admin routes.
-    if (strncmp(req.clean_path, "/admin/", 7) == 0 ||
-        strcmp(req.clean_path, "/whoami") == 0) {
+    if (strncmp(req.clean_path, "/admin/", 7) == 0 || strcmp(req.clean_path, "/whoami") == 0) {
         // /whoami works on the Basic credentials themselves, so it never
         // authenticates via the session.
         const bool whoami_route = (strcmp(req.clean_path, "/whoami") == 0);

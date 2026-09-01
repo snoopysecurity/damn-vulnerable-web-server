@@ -10,15 +10,14 @@
 // blank line, then a short body. The PID/UID lines are harmless
 // context: they prove which process and user actually ran, which is
 // exactly what matters when the temp-file race is won.
-#include <cstdio>
 #include <sys/types.h>
 #include <unistd.h>
+#include <cstdio>
 
 int main() {
     std::printf("Content-Type: text/plain\r\n");
     std::printf("\r\n");
     std::printf("DVWS native CGI helper\n");
-    std::printf("pid=%d uid=%d\n", static_cast<int>(getpid()),
-                static_cast<int>(getuid()));
+    std::printf("pid=%d uid=%d\n", static_cast<int>(getpid()), static_cast<int>(getuid()));
     return 0;
 }

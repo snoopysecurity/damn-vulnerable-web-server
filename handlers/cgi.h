@@ -9,6 +9,6 @@ namespace handlers {
 // Returns true if the request was handled (matched a /cgi-bin/ rule).
 bool cgi_dispatch(int client_socket, const HttpRequest& req);
 
-}
+}  // namespace handlers
 
 #endif

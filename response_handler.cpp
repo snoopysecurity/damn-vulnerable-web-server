@@ -1,13 +1,14 @@
 // response_handler.cpp
+#include <sys/socket.h>
+#include <unistd.h>
 #include <iostream>
 #include <string>
-#include <unistd.h>
-#include <sys/socket.h>
 #include "net_compat.h"
 
 // Function to send a generic HTTP response
-void send_response(int client_socket, const std::string& status_code, 
-                   const std::string& content_type, const std::string& body, const std::string& cookie = "") {
+void send_response(int client_socket, const std::string& status_code,
+                   const std::string& content_type, const std::string& body,
+                   const std::string& cookie = "") {
     std::string response_header = "HTTP/1.1 " + status_code + "\r\n";
     response_header += "Content-Type: " + content_type + "\r\n";
     if (!cookie.empty()) {
@@ -22,7 +23,8 @@ void send_response(int client_socket, const std::string& status_code,
 }
 
 // Function to send a 200 OK response
-void send_200_response(int client_socket, const std::string& content, const std::string& cookie = "") {
+void send_200_response(int client_socket, const std::string& content,
+                       const std::string& cookie = "") {
     send_response(client_socket, "200 OK", "text/html", content, cookie);
 }
 

@@ -3,10 +3,10 @@
 // Argument parsing, socket setup, and the accept loop. Routing lives
 // in router.cpp and the handlers/ + http/ modules.
 #include <arpa/inet.h>
-#include <csignal>
 #include <poll.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <csignal>
 
 #include <cerrno>
 #include <cstdio>
@@ -37,8 +37,8 @@ static void request_shutdown(int) {
 // (weak symbols supplied by AFL's runtime), and the harness falls back
 // to a single-shot read from stdin.
 #ifdef __AFL_HAVE_MANUAL_CONTROL
-    extern "C" int __AFL_LOOP(unsigned int);
-    extern "C" void __AFL_INIT(void);
+extern "C" int __AFL_LOOP(unsigned int);
+extern "C" void __AFL_INIT(void);
 #endif
 
 static int run_fuzz_mode() {
@@ -52,8 +52,8 @@ static int run_fuzz_mode() {
 
         size_t total_read = 0;
         while (total_read < sizeof(request) - 1) {
-            ssize_t bytes = read(STDIN_FILENO, request + total_read,
-                                 sizeof(request) - 1 - total_read);
+            ssize_t bytes =
+                read(STDIN_FILENO, request + total_read, sizeof(request) - 1 - total_read);
             if (bytes <= 0) break;
             total_read += bytes;
         }
@@ -70,8 +70,7 @@ static int run_fuzz_mode() {
 
     size_t total_read = 0;
     while (total_read < sizeof(request) - 1) {
-        ssize_t bytes = read(STDIN_FILENO, request + total_read,
-                             sizeof(request) - 1 - total_read);
+        ssize_t bytes = read(STDIN_FILENO, request + total_read, sizeof(request) - 1 - total_read);
         if (bytes <= 0) break;
         total_read += bytes;
     }
@@ -159,9 +158,8 @@ int main(int argc, char* argv[]) {
 
         struct sockaddr_in client_address{};
         socklen_t client_address_len = sizeof(client_address);
-        int client_socket = accept(server_socket,
-                                   (struct sockaddr*)&client_address,
-                                   &client_address_len);
+        int client_socket =
+            accept(server_socket, (struct sockaddr*)&client_address, &client_address_len);
         if (client_socket < 0) {
             perror("Failed to accept connection");
             continue;
@@ -184,7 +182,8 @@ int main(int argc, char* argv[]) {
     }
 
     std::cout << "shutdown requested: closing the listen socket and draining "
-                 "workers" << std::endl;
+                 "workers"
+              << std::endl;
     close(server_socket);
     return 0;
 }

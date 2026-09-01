@@ -1,20 +1,19 @@
 // base64.cpp
 
 #include "base64.h"
-#include <iostream>
-#include <cstring>
-#include <cstdlib>
 #include <cstdint>
+#include <cstdlib>
+#include <cstring>
+#include <iostream>
 
 static const char encoding_table[] = {
     'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P',
     'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f',
     'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v',
-    'w', 'x', 'y', 'z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '/'
-};
+    'w', 'x', 'y', 'z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '/'};
 
-static char *decoding_table = nullptr;
-static const int mod_table[] = { 0, 2, 1 };
+static char* decoding_table = nullptr;
+static const int mod_table[] = {0, 2, 1};
 
 void build_decoding_table() {
     decoding_table = static_cast<char*>(std::malloc(256));
@@ -83,10 +82,14 @@ unsigned char* base64_decode(const char* data, size_t input_length, size_t* outp
     }
 
     for (size_t i = 0, j = 0; i < input_length;) {
-        uint32_t sextet_a = data[i] == '=' ? 0 & i++ : decoding_table[static_cast<unsigned char>(data[i++])];
-        uint32_t sextet_b = data[i] == '=' ? 0 & i++ : decoding_table[static_cast<unsigned char>(data[i++])];
-        uint32_t sextet_c = data[i] == '=' ? 0 & i++ : decoding_table[static_cast<unsigned char>(data[i++])];
-        uint32_t sextet_d = data[i] == '=' ? 0 & i++ : decoding_table[static_cast<unsigned char>(data[i++])];
+        uint32_t sextet_a =
+            data[i] == '=' ? 0 & i++ : decoding_table[static_cast<unsigned char>(data[i++])];
+        uint32_t sextet_b =
+            data[i] == '=' ? 0 & i++ : decoding_table[static_cast<unsigned char>(data[i++])];
+        uint32_t sextet_c =
+            data[i] == '=' ? 0 & i++ : decoding_table[static_cast<unsigned char>(data[i++])];
+        uint32_t sextet_d =
+            data[i] == '=' ? 0 & i++ : decoding_table[static_cast<unsigned char>(data[i++])];
 
         uint32_t triple = (sextet_a << 18) + (sextet_b << 12) + (sextet_c << 6) + sextet_d;
 

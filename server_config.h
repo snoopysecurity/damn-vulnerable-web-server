@@ -6,7 +6,7 @@
 
 struct ServerConfig {
     char server_dir[200];  // document root, copied from argv[1]
-    int  port;
+    int port;
     bool fuzz_mode;
 };
 

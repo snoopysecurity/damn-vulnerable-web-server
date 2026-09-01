@@ -1,19 +1,19 @@
 // mime_type_handler.cpp
 
 #include "mime_type_handler.h"
-#include "utils.h"
-#include "net_compat.h"
-#include "http/response.h"
-#include "request_logger.h"
-#include "server_config.h"
-#include <cstring>
-#include <cstdlib>
-#include <cstdio>
-#include <string>
-#include <unistd.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <unistd.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <string>
+#include "http/response.h"
+#include "net_compat.h"
+#include "request_logger.h"
+#include "server_config.h"
+#include "utils.h"
 
 const char* get_content_type(const char* file_path) {
     // nginx-flavoured mapping table. Text types carry an explicit
@@ -24,29 +24,29 @@ const char* get_content_type(const char* file_path) {
         const char* type;
     } kTypes[] = {
         {".html", "text/html; charset=utf-8"},
-        {".htm",  "text/html; charset=utf-8"},
-        {".css",  "text/css; charset=utf-8"},
-        {".js",   "application/javascript; charset=utf-8"},
-        {".mjs",  "application/javascript; charset=utf-8"},
+        {".htm", "text/html; charset=utf-8"},
+        {".css", "text/css; charset=utf-8"},
+        {".js", "application/javascript; charset=utf-8"},
+        {".mjs", "application/javascript; charset=utf-8"},
         {".json", "application/json; charset=utf-8"},
-        {".txt",  "text/plain; charset=utf-8"},
-        {".csv",  "text/csv; charset=utf-8"},
-        {".md",   "text/plain; charset=utf-8"},
-        {".xml",  "application/xml; charset=utf-8"},
-        {".svg",  "image/svg+xml"},
-        {".ico",  "image/x-icon"},
-        {".png",  "image/png"},
-        {".gif",  "image/gif"},
+        {".txt", "text/plain; charset=utf-8"},
+        {".csv", "text/csv; charset=utf-8"},
+        {".md", "text/plain; charset=utf-8"},
+        {".xml", "application/xml; charset=utf-8"},
+        {".svg", "image/svg+xml"},
+        {".ico", "image/x-icon"},
+        {".png", "image/png"},
+        {".gif", "image/gif"},
         {".jpeg", "image/jpeg"},
-        {".jpg",  "image/jpeg"},
+        {".jpg", "image/jpeg"},
         {".webp", "image/webp"},
-        {".pdf",  "application/pdf"},
-        {".zip",  "application/zip"},
-        {".gz",   "application/gzip"},
-        {".tar",  "application/x-tar"},
-        {".mp4",  "video/mp4"},
+        {".pdf", "application/pdf"},
+        {".zip", "application/zip"},
+        {".gz", "application/gzip"},
+        {".tar", "application/x-tar"},
+        {".mp4", "video/mp4"},
         {".woff", "font/woff"},
-        {".woff2","font/woff2"},
+        {".woff2", "font/woff2"},
     };
 
     const char* extension = strrchr(file_path, '.');
@@ -74,11 +74,11 @@ void handle_cgi_helper(int client_socket, const char* request, int send_body) {
         helper_file = fopen(helper_path, "rb");
     }
     if (helper_file == nullptr) {
-        std::string body = http::error_page(
-            500, "Internal Server Error",
-            "The bundled CGI helper executable could not be located.");
-        http::send_status(client_socket, "500 Internal Server Error",
-                          "text/html; charset=utf-8", body, "", send_body == 0);
+        std::string body =
+            http::error_page(500, "Internal Server Error",
+                             "The bundled CGI helper executable could not be located.");
+        http::send_status(client_socket, "500 Internal Server Error", "text/html; charset=utf-8",
+                          body, "", send_body == 0);
         log_request_response(request, "HTTP/1.1 500 Internal Server Error");
         return;
     }
@@ -143,7 +143,8 @@ void handle_cgi_helper(int client_socket, const char* request, int send_body) {
 
     log_request_response(request, response_header);
 
-    if (send(client_socket, response_header.c_str(), response_header.length(), DVWS_SEND_FLAGS) < 0) {
+    if (send(client_socket, response_header.c_str(), response_header.length(), DVWS_SEND_FLAGS) <
+        0) {
         perror("Failed to send response header");
         pclose(helper_output);
         remove(temp_file_path);
@@ -152,7 +153,8 @@ void handle_cgi_helper(int client_socket, const char* request, int send_body) {
 
     char helper_buffer[1024];
     size_t helper_bytes_read;
-    while ((helper_bytes_read = fread(helper_buffer, 1, sizeof(helper_buffer), helper_output)) > 0) {
+    while ((helper_bytes_read = fread(helper_buffer, 1, sizeof(helper_buffer), helper_output)) >
+           0) {
         if (send_body) {
             if (send(client_socket, helper_buffer, helper_bytes_read, DVWS_SEND_FLAGS) < 0) {
                 perror("Failed to send CGI helper output");

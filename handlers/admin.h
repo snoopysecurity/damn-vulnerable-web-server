@@ -10,12 +10,12 @@ namespace handlers {
 // They all take ownership of finalizing the response for their route.
 
 void system_status(int client_socket, const HttpRequest& req);
-void upload_file  (int client_socket, const HttpRequest& req);
-void add_rule     (int client_socket, const HttpRequest& req);
-void update_rule  (int client_socket, const HttpRequest& req);
-void logging      (int client_socket, const HttpRequest& req);
-void whoami       (int client_socket, const HttpRequest& req);
+void upload_file(int client_socket, const HttpRequest& req);
+void add_rule(int client_socket, const HttpRequest& req);
+void update_rule(int client_socket, const HttpRequest& req);
+void logging(int client_socket, const HttpRequest& req);
+void whoami(int client_socket, const HttpRequest& req);
 
-}
+}  // namespace handlers
 
 #endif

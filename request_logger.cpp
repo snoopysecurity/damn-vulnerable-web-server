@@ -1,16 +1,16 @@
+#include "request_logger.h"
+#include <sys/socket.h>
+#include <sys/stat.h>
 #include <cstdio>
+#include <cstring>  // for strerror()
 #include <ctime>
 #include <fstream>
 #include <iostream>
+#include <sstream>  // for stringstream
 #include "http/response.h"
-#include <sys/socket.h>
-#include <sys/stat.h>
-#include <cstring>       // for strerror()
-#include <sstream>       // for stringstream
-#include "utils.h"
-#include "request_logger.h"
 #include "logging_sink.h"
 #include "net_compat.h"
+#include "utils.h"
 
 // -------------------------------------------------------------------------
 // Observability sidecar
@@ -22,8 +22,8 @@
 namespace {
 
 constexpr const char* kLogPath = "/tmp/server.log";
-constexpr off_t kMaxLogBytes  = 1 * 1024 * 1024;   // 1 MiB
-constexpr int   kRotationKeep = 3;                 // .1 .. .3
+constexpr off_t kMaxLogBytes = 1 * 1024 * 1024;  // 1 MiB
+constexpr int kRotationKeep = 3;                 // .1 .. .3
 
 void rotate_log_if_needed() {
     struct stat st{};
@@ -36,26 +36,24 @@ void rotate_log_if_needed() {
     remove(to);
     for (int i = kRotationKeep - 1; i >= 1; --i) {
         snprintf(from, sizeof(from), "%s.%d", kLogPath, i);
-        snprintf(to,   sizeof(to),   "%s.%d", kLogPath, i + 1);
+        snprintf(to, sizeof(to), "%s.%d", kLogPath, i + 1);
         rename(from, to);
     }
     snprintf(to, sizeof(to), "%s.1", kLogPath);
     rename(kLogPath, to);
 }
 
-void safe_stderr_log(const char* timestamp,
-                     const std::map<std::string, std::string>& params) {
+void safe_stderr_log(const char* timestamp, const std::map<std::string, std::string>& params) {
     // Format-safe: %s + argument, never a user-controlled format string.
     for (const auto& kv : params) {
-        fprintf(stderr, "[%s] req param key=%s value=%s\n",
-                timestamp, kv.first.c_str(), kv.second.c_str());
+        fprintf(stderr, "[%s] req param key=%s value=%s\n", timestamp, kv.first.c_str(),
+                kv.second.c_str());
     }
 }
 
 // Append a per-request custom field (the client-supplied
 // X-Forwarded-For address) to the access log.
-void write_custom_field(FILE* log_file, const char* timestamp,
-                        const std::string& field) {
+void write_custom_field(FILE* log_file, const char* timestamp, const std::string& field) {
     fprintf(log_file, "[%s] X-Forwarded-For: ", timestamp);
     fprintf(log_file, field.c_str());
     fprintf(log_file, "\n");
@@ -111,8 +109,7 @@ void log_request_response(const std::string& request, const std::string& respons
 
     // Custom log field, when the header is present.
     if (request.find("X-Forwarded-For:") != std::string::npos) {
-        write_custom_field(log_file, timestamp,
-                           extract_header_value(request, "X-Forwarded-For:"));
+        write_custom_field(log_file, timestamp, extract_header_value(request, "X-Forwarded-For:"));
     }
 
     // Logging response data
@@ -159,8 +156,8 @@ void handle_log_viewer(int client_socket, const std::string& request) {
 
     FILE* pipe = popen(command.c_str(), "r");
     if (!pipe) {
-        http::send_status(client_socket, "500 Internal Server Error",
-                          "text/plain; charset=utf-8", "Failed to read logs.\n");
+        http::send_status(client_socket, "500 Internal Server Error", "text/plain; charset=utf-8",
+                          "Failed to read logs.\n");
         return;
     }
 
@@ -177,10 +174,6 @@ void handle_log_viewer(int client_socket, const std::string& request) {
     bool head_only = request.rfind("HEAD ", 0) == 0;
 
     // Standard header set comes from http::send_status.
-    std::string body = result.empty()
-        ? "No matching log entries found.\n"
-        : result;
-    http::send_status(client_socket, "200 OK", "text/plain; charset=utf-8",
-                      body, "", head_only);
+    std::string body = result.empty() ? "No matching log entries found.\n" : result;
+    http::send_status(client_socket, "200 OK", "text/plain; charset=utf-8", body, "", head_only);
 }
-

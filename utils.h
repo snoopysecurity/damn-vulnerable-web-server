@@ -2,12 +2,13 @@
 #define UTILS_H
 
 #include <cstddef>
-#include <string>
 #include <map>
+#include <string>
 
 std::string extract_header_value(const std::string& request, const std::string& header_name);
 std::map<std::string, std::string> extract_query_parameters(const std::string& request);
-bool extract_username_password(const std::string& authorization_header, std::string& username, std::string& password);
+bool extract_username_password(const std::string& authorization_header, std::string& username,
+                               std::string& password);
 std::string url_decode(const std::string& str);
 
 // Upper-bound size estimate for a %-escaped parameter value: counts
@@ -18,4 +19,3 @@ size_t estimate_decoded_length(const char* s);
 
 const char* get_cgi_helper_path();
 #endif
-

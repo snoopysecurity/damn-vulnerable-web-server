@@ -15,6 +15,6 @@ void status(int client_socket, const HttpRequest& req);
 // a running count.
 void status_bump_request_counter();
 
-}
+}  // namespace handlers
 
 #endif

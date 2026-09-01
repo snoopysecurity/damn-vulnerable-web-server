@@ -10,9 +10,9 @@
 #include <sys/socket.h>
 
 #ifdef MSG_NOSIGNAL
-    #define DVWS_SEND_FLAGS MSG_NOSIGNAL
+#define DVWS_SEND_FLAGS MSG_NOSIGNAL
 #else
-    #define DVWS_SEND_FLAGS 0
+#define DVWS_SEND_FLAGS 0
 #endif
 
 #endif

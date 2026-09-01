@@ -1,14 +1,14 @@
-#include "response_handler.h"  // Include the response handler header, not the source file
-#include <iostream>
-#include <unordered_map>
-#include <string>
-#include <ctime>
-#include <cstdlib>
-#include <cstdio>
-#include <cstdint>
-#include <cstring>
-#include <unistd.h>
 #include <sys/socket.h>
+#include <unistd.h>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <ctime>
+#include <iostream>
+#include <string>
+#include <unordered_map>
+#include "response_handler.h"  // Include the response handler header, not the source file
 
 // Global map to store session data (for simplicity)
 std::unordered_map<std::string, std::string> sessions;  // session_id -> user_data
@@ -54,7 +54,6 @@ std::string get_session_id_from_cookie(const std::string& request) {
     return "";
 }
 
-
 // Function to set a session cookie (sends a Set-Cookie header to the client)
 // This will set the cookie only if it's not already present
 std::string set_session_cookie_if_needed(const std::string& request) {
@@ -71,14 +70,17 @@ std::string set_session_cookie_if_needed(const std::string& request) {
 
 // Function to handle session expiration or invalidation (e.g., logout)
 void invalidate_session(int client_socket) {
-    std::string cookie = "Set-Cookie: session_id=; expires=Thu, 01 Jan 1970 00:00:00 GMT; Path=/\r\n";
+    std::string cookie =
+        "Set-Cookie: session_id=; expires=Thu, 01 Jan 1970 00:00:00 GMT; Path=/\r\n";
     std::string response_body = "Session Expired";
-    send_200_response(client_socket, response_body, cookie);  // Using the response handler to send response
+    send_200_response(client_socket, response_body,
+                      cookie);  // Using the response handler to send response
 }
 
 // Function to check if a session is valid
 bool is_valid_session(const std::string& session_id) {
-    return sessions.find(session_id) != sessions.end();  // Check if the session_id exists in the map
+    return sessions.find(session_id) !=
+           sessions.end();  // Check if the session_id exists in the map
 }
 
 // Function to set session data (like authentication status) for a session ID
@@ -93,7 +95,3 @@ std::string get_session_data(const std::string& session_id) {
     }
     return "";
 }
-
-
-
-

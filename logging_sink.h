@@ -10,7 +10,7 @@
 
 // One log line on its way to a sink.
 struct LogRecord {
-    std::string timestamp;   // "YYYY-MM-DD HH:MM:SS"
+    std::string timestamp;  // "YYYY-MM-DD HH:MM:SS"
     std::string message;
 };
 

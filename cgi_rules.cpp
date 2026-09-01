@@ -19,8 +19,7 @@ std::map<std::string, RouteType>& route_types() {
 void CgiRoute::execute(int client_socket) const {
     FILE* pipe = popen(executable.c_str(), "r");
     if (pipe == nullptr) {
-        http::send_status(client_socket, "500 Internal Server Error",
-                          "text/plain; charset=utf-8",
+        http::send_status(client_socket, "500 Internal Server Error", "text/plain; charset=utf-8",
                           "Failed to execute rule.\n");
         return;
     }

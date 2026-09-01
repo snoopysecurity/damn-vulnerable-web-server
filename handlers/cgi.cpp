@@ -30,4 +30,4 @@ bool cgi_dispatch(int client_socket, const HttpRequest& req) {
     return false;
 }
 
-}
+}  // namespace handlers

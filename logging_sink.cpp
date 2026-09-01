@@ -47,8 +47,7 @@ void file_sink_write(const LogRecord& record) {
 void syslog_sink_write(const LogRecord& record) {
     // Local syslog relay: priority header + timestamp + message on stderr,
     // the shape a real syslog() call would forward to the daemon.
-    fprintf(stderr, "<134>dvws: [%s] %s\n",
-            record.timestamp.c_str(), record.message.c_str());
+    fprintf(stderr, "<134>dvws: [%s] %s\n", record.timestamp.c_str(), record.message.c_str());
 }
 
 void worker_loop() {
@@ -116,6 +115,6 @@ void install_log_sink(LogSink* sink) {
 void enqueue_log_record(const std::string& timestamp, const std::string& message) {
     ensure_worker_started();
     std::lock_guard<std::mutex> lock(g_queue_mtx);
-    g_queue.push_back(QueueEntry{LogRecord{timestamp, message}, g_sink,
-                                 std::chrono::steady_clock::now()});
+    g_queue.push_back(
+        QueueEntry{LogRecord{timestamp, message}, g_sink, std::chrono::steady_clock::now()});
 }
