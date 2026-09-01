@@ -1,10 +1,14 @@
 FROM aflplusplus/aflplusplus:v4.21c
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        cmake \
         libssl-dev \
         build-essential \
+        python3-pip \
     && rm -rf /var/lib/apt/lists/*
+
+# The AFL++ base image currently exposes Ubuntu 22.04's cmake 3.22.x,
+# but this repo requires cmake 3.25+.
+RUN python3 -m pip install --no-cache-dir "cmake>=3.25,<4"
 
 WORKDIR /src
 COPY . .
