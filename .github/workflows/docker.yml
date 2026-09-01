@@ -1,0 +1,159 @@
+name: docker-images
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "Dockerfile*"
+      - "docker-compose.yml"
+      - "*.cpp"
+      - "*.h"
+      - "handlers/**"
+      - "http/**"
+      - "serve/**"
+      - "fuzz/**"
+      - ".github/workflows/docker.yml"
+  pull_request:
+    paths:
+      - "Dockerfile*"
+      - "docker-compose.yml"
+      - "*.cpp"
+      - "*.h"
+      - "handlers/**"
+      - "http/**"
+      - "serve/**"
+      - "fuzz/**"
+      - ".github/workflows/docker.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # One in-flight run per branch/PR; superseded runs are cancelled.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  serve-image:
+    name: serve image (Dockerfile.serve)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Build image
+        run: docker compose build
+
+      - name: Start container via compose (read-only rootfs, tmpfs /tmp, caps dropped)
+        run: docker compose up -d
+
+      - name: Wait for the server to accept requests
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf -o /dev/null http://localhost:8081/index.html; then
+              echo "server is up (attempt $i)"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::server never became ready"
+          docker compose logs
+          exit 1
+
+      - name: Smoke test - front page is served
+        run: |
+          code=$(curl -s -o /tmp/dvws_front.html -w '%{http_code}' http://localhost:8081/)
+          echo "GET / -> $code"
+          [ "$code" = "200" ]
+          grep -q '<!DOCTYPE html>' /tmp/dvws_front.html
+
+      - name: Smoke test - admin console rejects anonymous access
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8081/admin/)
+          echo "GET /admin/ (anonymous) -> $code"
+          [ "$code" = "401" ]
+
+      - name: Smoke test - admin console accepts admin:admin
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' -u admin:admin http://localhost:8081/admin/)
+          echo "GET /admin/ (admin:admin) -> $code"
+          [ "$code" = "200" ]
+
+      - name: Vuln probe - path traversal escapes the docroot (CWE-22, intentional)
+        # Docroot is /app/serve, so /../../etc/passwd canonicalizes to
+        # /etc/passwd: the pre-canonicalization containment check can never
+        # fire (same bug class as tests/exploit/test_path_traversal.py).
+        # --path-as-is stops curl from collapsing the ../ segments client-side.
+        run: |
+          code=$(curl -s --path-as-is -o /tmp/dvws_passwd -w '%{http_code}' \
+              http://localhost:8081/../../etc/passwd)
+          echo "GET /../../etc/passwd (path-as-is) -> $code"
+          [ "$code" = "200" ]
+          grep -q '^root:' /tmp/dvws_passwd
+          echo "intentional CWE-22 still triggers inside the container"
+
+      - name: Container is still running (no crash, no OOM)
+        run: |
+          status=$(docker inspect --format '{{.State.Status}}' dvws-serve)
+          echo "container status: $status"
+          [ "$status" = "running" ]
+          [ "$(docker inspect --format '{{.State.OOMKilled}}' dvws-serve)" = "false" ]
+
+      - name: Teardown
+        if: always()
+        run: docker compose down -v --remove-orphans
+
+  fuzz-image:
+    name: fuzz image (Dockerfile, AFL++)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Build image
+        run: docker build -t vuln-server-fuzz -f Dockerfile .
+
+      - name: Run a 20-second fuzz session
+        # Same command as the image CMD plus -V 20, which makes AFL++ shut
+        # down cleanly after 20 s. Time-limited runs have noisy exit codes,
+        # so success is asserted on fuzzer_stats in the next step instead.
+        # The AFL_* env vars are the documented container/CI workarounds:
+        # no CPU affinity (core binding is blocked by Docker), no CPU
+        # frequency check (afl-system-config cannot run on the host), and
+        # tolerate the core_pattern pipe check.
+        run: |
+          mkdir -p fuzz-out
+          docker run --rm \
+              -e AFL_NO_AFFINITY=1 \
+              -e AFL_SKIP_CPUFREQ=1 \
+              -e AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 \
+              --security-opt seccomp=unconfined \
+              -v "$PWD/fuzz-out:/src/fuzz/out" \
+              vuln-server-fuzz \
+              /usr/local/bin/afl-fuzz \
+                  -i /src/fuzz/in \
+                  -o /src/fuzz/out \
+                  -m none \
+                  -x /src/fuzz/dict.txt \
+                  -V 20 \
+                  -- /src/build/damn_vulnerable_web_server /src/serve 8081 --fuzz \
+              || true
+
+      - name: Assert the fuzzer actually executed
+        run: |
+          test -f fuzz-out/default/fuzzer_stats
+          execs=$(grep -E '^execs_done' fuzz-out/default/fuzzer_stats | head -1)
+          echo "$execs"
+          echo "$execs" | grep -Eq '^execs_done[[:space:]]*:[[:space:]]*[1-9][0-9]*'
+
+      - name: Cleanup
+        if: always()
+        # AFL++ writes the mounted output directory as root.
+        run: sudo rm -rf fuzz-out
