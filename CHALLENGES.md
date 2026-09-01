@@ -31,7 +31,7 @@ do not renumber challenges. See the
 
 | #  | Vulnerability                | Class          | CWE   | Endpoint / Trigger                     | Card | Solution |
 |----|------------------------------|----------------|-------|----------------------------------------|------|----------|
-| 06 | Insecure Temp File (race)    | System         | CWE-377 | `/tmp/php_script_<pid>.php`           | [card](challenges/README.md#challenge-06) | [sol](challenges/README.md#solution-06) |
+| 06 | Insecure Temp Executable Race | System       | CWE-377 | `/tmp/dvws_cgi_<pid>`                 | [card](challenges/README.md#challenge-06) | [sol](challenges/README.md#solution-06) |
 | 08 | Use-After-Free (LogSink)      | Memory         | CWE-416 | `/admin/logging`                       | [card](challenges/README.md#challenge-08) | [sol](challenges/README.md#solution-08) |
 | 11 | Type Confusion                | Memory         | CWE-843 | `/admin/add_rule` + `/admin/update_rule` + `/cgi-bin/*` | [card](challenges/README.md#challenge-11) | [sol](challenges/README.md#solution-11) |
 

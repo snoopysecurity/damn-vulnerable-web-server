@@ -10,6 +10,7 @@ in [`CHALLENGES.md`](CHALLENGES.md).
 |-------------------------------------|------------------------------------------------------|
 | `main.cpp`                          | arg parsing + accept loop                            |
 | `router.cpp` / `router.h`           | request dispatcher                                   |
+| `dvws_cgi_helper.cpp`              | bundled native CGI helper executable (CH-06)         |
 | `http/`                             | `HttpRequest` parser + response/error-page helpers   |
 | `handlers/`                         | one file per intentional vuln (admin / cgi / static) |
 | `authentication.cpp`, `session_manager.cpp`, `request_logger.cpp`, `mime_type_handler.cpp` | supporting subsystems |
@@ -54,7 +55,7 @@ byte-for-byte intact:
 
 - **Methods** — `GET`, `POST` and `HEAD` are served. Anything else gets
   `405 Method Not Allowed` + `Allow:`; malformed request lines get `400`.
-- **Directories** — `DirectoryIndex` (`index.html`, then `index.php`),
+- **Directories** — `DirectoryIndex` (`index.html`),
   trailing-slash `301` redirects, and nginx-style autoindex listings for
   directories without an index document.
 - **Headers** — every response carries `Server: DVWS/1.0`, `Date:`,
@@ -63,20 +64,23 @@ byte-for-byte intact:
 - **Content types** — nginx-style MIME table (svg, ico, woff2, webp, mp4,
   …), `charset=utf-8` on text types, `application/octet-stream` default.
 - **Admin API** — `/admin/*` endpoints respond with JSON; `/status`
-  reports version, docroot, PHP path, uptime and request count.
+  reports version, docroot, CGI helper path, uptime and request count.
 - **Lifecycle** — nginx-style startup banner; graceful shutdown on
   SIGTERM/SIGINT (drains the worker pool, exits 0), which is what
   `docker compose stop` exercises.
-- **PHP** — `.php` files under the docroot execute via `php-cli` when
-  installed (see CH-06 for why that code path is interesting).
+- **Native CGI helper** — `GET /cgi-helper` stages the bundled
+  `dvws_cgi_helper` executable (built automatically alongside the
+  server, located next to the server binary) through a predictable
+  `/tmp` path and executes it. No interpreter is involved (see CH-06
+  for why that code path is interesting).
 - **Site content** — `serve/` is a whole small site, not a stub: landing
   page, `about.html`, `blog/` (3 posts), `projects.html` (the challenge
   endpoints framed as hosted tools), and `downloads/` with real files
   (quickstart guide, sample access-log CSV, press-kit zip). Shared chrome
   in `static/` (`style.css`, `app.js`, `logo.svg`) matches the generated
   error pages, plus `favicon.ico`, `robots.txt` (`Disallow: /admin/`),
-  `humans.txt` and a site `404.html`. `/echo.php` is a request-echo/debug
-  page and `/admin/` a PHP dashboard with functional forms for the admin
+  `humans.txt` and a site `404.html`. `/echo` is a native request-echo/debug
+  page and `/admin/` a static dashboard with functional forms for the admin
   API. The `DVWS/1.0` fingerprint is identical in the `Server:` header,
   the `/status` JSON and every site footer.
 
@@ -96,7 +100,8 @@ curl -i http://localhost:8081/downloads/  # downloads page
 curl -i http://localhost:8081/status      # service info (JSON)
 curl -I http://localhost:8081/index.html  # HEAD + Last-Modified
 curl -i http://localhost:8081/robots.txt  # classic misconfig realism
-curl -i http://localhost:8081/echo.php    # PHP debug page (needs php-cli)
+curl -i http://localhost:8081/echo        # request echo / debug page
+curl -i http://localhost:8081/cgi-helper  # native CGI helper (see CH-06)
 curl -i -u admin:admin http://localhost:8081/admin/   # admin dashboard
 ```
 

@@ -8,6 +8,11 @@
 #include <iomanip>
 #include <cstdlib>
 #include <cstdio>
+#include <cstring>
+#include <unistd.h>
+#ifdef __APPLE__
+#include <mach-o/dyld.h>
+#endif
 
 
 std::string url_decode(const std::string& str) {
@@ -148,34 +153,48 @@ bool extract_username_password(const std::string &authorization_header, std::str
 }
 
 
-const char* get_php_interpreter_path() {
-    // Resolved once and reused: `which php` used to be re-invoked on every
-    // PHP request, which was gratuitously slow and added an unnecessary
-    // fork/exec to the request path.
-    static char path[256];
+const char* get_cgi_helper_path() {
+    // Resolved once and reused: the bundled helper is located next to
+    // the running server executable (build/ for a local cmake build,
+    // /app in the serve image), so no absolute path is baked in.
+    // $DVWS_CGI_HELPER overrides the lookup for exotic installs.
+    static char path[512];
     static bool resolved = false;
     static bool ok = false;
     if (resolved) return ok ? path : NULL;
     resolved = true;
 
-    FILE* fp = popen("which php", "r");
-    if (fp == NULL) {
-        perror("[ERROR] popen failed");
-        return NULL;
+    const char* env = getenv("DVWS_CGI_HELPER");
+    if (env != NULL && env[0] != '\0') {
+        snprintf(path, sizeof(path), "%s", env);
+        ok = true;
+        return path;
     }
 
-    if (fgets(path, sizeof(path), fp) == NULL) {
-        pclose(fp);
-        return NULL;
+    char exe_path[512];
+    bool have_exe = false;
+#ifdef __APPLE__
+    uint32_t exe_size = sizeof(exe_path);
+    if (_NSGetExecutablePath(exe_path, &exe_size) == 0) {
+        have_exe = true;
     }
-    pclose(fp);
-
-    // Strip newline
-    size_t len = strlen(path);
-    if (len > 0 && path[len - 1] == '\n') {
-        path[len - 1] = '\0';
+#else
+    ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1);
+    if (len > 0) {
+        exe_path[len] = '\0';
+        have_exe = true;
     }
-
-    ok = true;
-    return path;
+#endif
+    if (have_exe) {
+        char* slash = strrchr(exe_path, '/');
+        if (slash != NULL) {
+            *slash = '\0';
+            snprintf(path, sizeof(path), "%s/dvws_cgi_helper", exe_path);
+            if (access(path, X_OK) == 0) {
+                ok = true;
+                return path;
+            }
+        }
+    }
+    return NULL;
 }

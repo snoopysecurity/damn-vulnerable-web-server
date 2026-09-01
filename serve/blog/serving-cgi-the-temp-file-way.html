@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Serving PHP the temp-file way | DVWS Blog</title>
+  <title>Serving CGI the temp-file way | DVWS Blog</title>
   <link rel="icon" href="/favicon.ico" sizes="any">
   <link rel="stylesheet" href="/static/style.css">
 </head>
@@ -25,39 +25,44 @@
   <main class="container">
     <section>
       <article class="post">
-        <h1>Serving PHP the temp-file way</h1>
-        <p class="meta">2026-05-02 &middot; php &middot; K. Ito &middot; <a href="/blog/">all posts</a></p>
+        <h1>Serving CGI the temp-file way</h1>
+        <p class="meta">2026-05-02 &middot; cgi &middot; K. Ito &middot; <a href="/blog/">all posts</a></p>
 
-        <p>Every PHP setup tutorial assumes you'll install FPM and spend an
-          afternoon on pool configuration. We took a shortcut: when a request
-          maps to a <code>.php</code> file, the server copies it to a scratch
-          file and pipes it through the interpreter with
+        <p>Every CGI tutorial assumes you'll install a scripting runtime
+          and spend an afternoon configuring its process pool. We took a
+          shortcut: the server ships with a tiny native helper binary,
+          and when a request hits <code>/cgi-helper</code>, the server
+          copies that helper to a scratch file and executes it with
           <code>popen()</code>.</p>
 
         <h2>How it works</h2>
-        <p>The handler writes the script to
-          <code>/tmp/php_script_&lt;pid&gt;.php</code>, runs the interpreter
-          on that copy, and streams whatever the interpreter prints straight
-          to the socket. Response headers are sent first, so the connection
-          close delimits the body. Simple, debuggable, zero daemons.</p>
+        <p>The handler stages the helper at
+          <code>/tmp/dvws_cgi_&lt;pid&gt;</code>, makes it executable,
+          runs it, and streams whatever it prints straight to the
+          socket. Response headers are sent first, so the connection
+          close delimits the body. One binary, no interpreter, zero
+          daemons.</p>
 
         <h2>Why it's fine (it isn't)</h2>
         <p>The scratch filename is derived from the process ID, which is
-          trivially predictable on most kernels. A second request landing
-          while the file exists reads the same script, and anything that can
-          predict the name can race the copy. We know. We shipped it anyway,
-          because the whole point of this server is to be the thing you
-          practice on.</p>
+          trivially predictable on most kernels. The staged copy is
+          closed and left sitting at that path for a good while before
+          it is executed, so anything that can predict the name -- and
+          write to <code>/tmp</code> -- can race the copy and substitute
+          its own executable. We know. We shipped it anyway, because the
+          whole point of this server is to be the thing you practice
+          on.</p>
 
         <h2>When you actually want this</h2>
-        <p>Honestly, never in production. But for a workshop box it keeps the
-          process tree flat -- one binary, one interpreter fork per request
-          -- which makes everything observable with plain
+        <p>Honestly, never in production. But for a workshop box it keeps
+          the process tree flat -- one server binary, one helper fork
+          per request -- which makes everything observable with plain
           <code>ps</code> and <code>ls /tmp</code>. For teaching, that
           transparency is worth more than throughput.</p>
 
-        <p>Try it yourself: hit <a href="/echo.php">/echo.php</a> and then
-          go look for the scratch file while the request is in flight.</p>
+        <p>Try it yourself: hit <a href="/cgi-helper">/cgi-helper</a>
+          and then go look for the scratch file while the request is in
+          flight.</p>
       </article>
     </section>
   </main>
@@ -77,7 +82,7 @@
         <h4>Tools</h4>
         <ul>
           <li><a href="/status">Status endpoint</a></li>
-          <li><a href="/echo.php">Request echo</a></li>
+          <li><a href="/echo">Request echo</a></li>
           <li><a href="/logs">Log viewer</a></li>
         </ul>
       </div>

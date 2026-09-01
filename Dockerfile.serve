@@ -1,10 +1,10 @@
 # Damn Vulnerable Web Server -- CTF instance image.
 #
 # This is the *serve* image (not the fuzzing image). It builds the
-# vulnerable-by-default binary and runs it as a non-root user with a
-# read-only rootfs (/tmp is the only writable location because the PHP
-# temp-file challenge needs it). Do not deploy this on a network you
-# do not control.
+# vulnerable-by-default binary plus the bundled native CGI helper and
+# runs it as a non-root user with a read-only rootfs (/tmp is the only
+# writable location because the temp-file challenge needs it). Do not
+# deploy this on a network you do not control.
 
 FROM debian:bookworm-20240722-slim AS builder
 
@@ -26,7 +26,6 @@ FROM debian:bookworm-20240722-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libssl3 \
-        php-cli \
         ca-certificates \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --system dvws \
@@ -34,6 +33,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 COPY --from=builder /src/build/damn_vulnerable_web_server /app/damn_vulnerable_web_server
+COPY --from=builder /src/build/dvws_cgi_helper /app/dvws_cgi_helper
 COPY --from=builder /src/serve /app/serve
 COPY --from=builder /src/challenges /app/challenges
 COPY --from=builder /src/CHALLENGES.md /app/CHALLENGES.md
@@ -43,6 +43,7 @@ EXPOSE 8081
 STOPSIGNAL SIGTERM
 
 # Run against /app/serve on port 8081. The mount points in docker-compose
-# make /tmp writable for the PHP temp-file challenge.
+# make /tmp writable for the temp-file challenge (CH-06); the helper is
+# found next to the server binary at /app/dvws_cgi_helper.
 ENTRYPOINT ["/app/damn_vulnerable_web_server"]
 CMD ["/app/serve", "8081"]

@@ -35,10 +35,10 @@
 
         <div class="card">
           <h3>Request echo</h3>
-          <p>Debug endpoint that reports what the PHP interpreter sees on each
-            call: superglobals, SAPI, version. Located at
-            <code>/echo.php</code>.</p>
-          <a class="more" href="/echo.php">Open &rarr;</a>
+          <p>Debug endpoint that reports what the server sees on each
+            call: request line, query parameters, headers. Located at
+            <code>/echo</code>.</p>
+          <a class="more" href="/echo">Open &rarr;</a>
         </div>
 
         <div class="card">
@@ -57,7 +57,7 @@
 
         <div class="card">
           <h3>Admin console</h3>
-          <p>PHP dashboard behind HTTP Basic auth. System status, file
+          <p>Static dashboard behind HTTP Basic auth. System status, file
             uploads, CGI rule management, logger configuration.</p>
           <a class="more" href="/admin/">Open &rarr;</a>
         </div>
@@ -97,7 +97,7 @@
         <h4>Tools</h4>
         <ul>
           <li><a href="/status">Status endpoint</a></li>
-          <li><a href="/echo.php">Request echo</a></li>
+          <li><a href="/echo">Request echo</a></li>
           <li><a href="/logs">Log viewer</a></li>
         </ul>
       </div>

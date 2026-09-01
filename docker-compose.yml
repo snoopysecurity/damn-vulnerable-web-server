@@ -14,7 +14,7 @@ services:
       - "8081:8081"
     read_only: true
     tmpfs:
-      # PHP temp-file challenge (CH-06) requires a writable /tmp.
+      # Temp-file challenge (CH-06) requires a writable /tmp.
       - /tmp:size=32m,mode=1777
     cap_drop:
       - ALL

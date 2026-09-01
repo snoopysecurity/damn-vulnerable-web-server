@@ -32,7 +32,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            build-essential cmake libssl-dev php-cli
+            build-essential cmake libssl-dev
 
       - name: Configure
         run: cmake -S . -B build ${{ matrix.build.flags }}
@@ -51,7 +51,7 @@ jobs:
           grep -q 'fprintf(log_file, field.c_str())'             request_logger.cpp
           grep -q 'set_session_data(session_id, "authenticated:admin")' router.cpp
           grep -q 'SESSION_%08x'                                 session_manager.cpp
-          grep -q '/tmp/php_script_%d.php'                       mime_type_handler.cpp
+          grep -q '/tmp/dvws_cgi_%d'                             mime_type_handler.cpp
           grep -q 'std::string(response, sizeof(response))'      handlers/admin.cpp
           grep -q 'char response\[128\];'                       handlers/admin.cpp
           grep -q 'entry.sink->write(entry.record)'              logging_sink.cpp

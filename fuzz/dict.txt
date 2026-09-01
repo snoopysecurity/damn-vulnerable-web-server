@@ -34,7 +34,8 @@ r_status          = "/status"
 r_logs            = "/logs"
 r_cgi             = "/cgi-bin/"
 r_index           = "/index.html"
-r_php             = "/echo.php"
+r_echo            = "/echo"
+r_cgi_helper      = "/cgi-helper"
 
 # --- Query parameter keys ---
 q_status  = "status="

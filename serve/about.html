@@ -34,15 +34,16 @@
       <div class="card" style="max-width:720px">
         <h3>What this is</h3>
         <p>Damn Vulnerable Web Server is a small, self-contained HTTP server
-          written in C++ with a thin PHP layer for scripting. It exists to give
-          security workshops a <em>realistic</em> target: not a puzzle box with
+          written in C++ with a bundled native CGI helper for executable
+          endpoints. It exists to give security workshops a
+          <em>realistic</em> target: not a puzzle box with
           one contrived flaw, but a whole little deployment -- static site,
           blog, downloads area, admin console, logs -- with the kinds of
           mistakes real teams ship.</p>
         <h3 style="margin-top:20px">How it's built</h3>
         <dl class="info">
           <dt>core</dt><dd>Hand-rolled C++ request loop, no framework, no TLS</dd>
-          <dt>php</dt><dd>Scripts executed per-request via the interpreter</dd>
+          <dt>cgi helper</dt><dd>Tiny native binary staged per-request from the server bundle</dd>
           <dt>content</dt><dd>Plain HTML/CSS/JS in the docroot</dd>
           <dt>auth</dt><dd>HTTP Basic for the admin area</dd>
           <dt>sessions</dt><dd>Cookie-based, home-grown</dd>
@@ -59,9 +60,10 @@
       <h2>Changelog</h2>
       <table>
         <tr><th>Version</th><th>Date</th><th>Notes</th></tr>
+        <tr><td>1.1</td><td>2026-09</td><td>PHP layer retired; bundled native CGI helper</td></tr>
         <tr><td>1.0</td><td>2026-08</td><td>Current release: site content, blog, downloads, admin console</td></tr>
         <tr><td>0.9</td><td>2026-04</td><td>First public build; request loop stable</td></tr>
-        <tr><td>0.4</td><td>2025-11</td><td>Internal: PHP layer added</td></tr>
+        <tr><td>0.4</td><td>2025-11</td><td>Internal: PHP layer added (removed again in 1.1)</td></tr>
         <tr><td>0.1</td><td>2024-12</td><td>Prototype: serves one file, badly</td></tr>
       </table>
     </section>
@@ -83,7 +85,7 @@
         <h4>Tools</h4>
         <ul>
           <li><a href="/status">Status endpoint</a></li>
-          <li><a href="/echo.php">Request echo</a></li>
+          <li><a href="/echo">Request echo</a></li>
           <li><a href="/logs">Log viewer</a></li>
         </ul>
       </div>

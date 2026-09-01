@@ -25,8 +25,8 @@ this server intentionally ignores them.
                     │    └── static file → docroot check, then            │  ← CH-01
                     │                     canonicalize (order inverted)
                     ├─────────────────────────────────────────────────────┤
-                    │ 4. request_logger — fprintf(f, X-Forwarded-For)    │  ← CH-03
-                    │                  ── /tmp/php_script_<pid>.php       │  ← CH-06
+                     │ 4. request_logger — fprintf(f, X-Forwarded-For)    │  ← CH-03
+                     │    /cgi-helper  — stage+exec /tmp/dvws_cgi_<pid>   │  ← CH-06
                    ├─────────────────────────────────────────────────────┤
                    │ 5. session_manager — srand(time(0));               │  ← CH-04, CH-05
                    │                      rand() ^ getpid()             │
@@ -42,7 +42,7 @@ this server intentionally ignores them.
 | Path canonicalization| check lexical path, canonicalize after          | canonicalize first, then prefix check on the canonical result              |
 | Shell interop        | `popen("grep ... " + quoted_input)`               | never; use `execve`/`posix_spawn` with argument vectors                    |
 | String formatting    | user input as format string                        | always `%s` with format literal                                            |
-| Temp files           | predictable `/tmp/<pid>.php`                       | `mkstemp` with `O_EXCL` in a dir the server owns                           |
+| Temp files           | predictable `/tmp/dvws_cgi_<pid>` executable      | `mkstemp` with `O_EXCL` in a dir the server owns                           |
 | Sessions             | `rand()^getpid()` seeded by `time(0)`              | 128+ bits from `/dev/urandom` (or `getrandom`)                             |
 | Session lifecycle    | client-supplied ID reused after auth               | rotate ID on privilege change; reject unknown IDs                          |
 | Auth                 | hard-coded `admin:admin`                           | passwd hashing (Argon2/bcrypt) + rate limiting + MFA                       |

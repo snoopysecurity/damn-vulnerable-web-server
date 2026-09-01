@@ -4,7 +4,7 @@
 
 Maintainer
   D. Walsh -- C++ core, HTTP plumbing
-  K. Ito -- PHP layer, admin console
+  K. Ito -- CGI helper, admin console
   M. Reyes -- site content, docs
 
 /* SITE */

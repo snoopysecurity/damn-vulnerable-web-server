@@ -115,7 +115,7 @@ static void serve_file(int client_socket, const char* file_path,
     snprintf(resolved_path, sizeof(resolved_path), "%s", file_path);
     struct stat path_stat{};
     if (stat(resolved_path, &path_stat) == 0 && S_ISDIR(path_stat.st_mode)) {
-        static const char* const kIndexDocs[] = {"index.html", "index.php"};
+        static const char* const kIndexDocs[] = {"index.html"};
         bool index_found = false;
         for (const char* doc : kIndexDocs) {
             size_t len = strlen(resolved_path);
@@ -167,23 +167,6 @@ static void serve_file(int client_socket, const char* file_path,
         response_header = "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\n\r\nFile Not Found";
         send_error_response(client_socket, 404, "Not Found", file_path, head_only ? 0 : 1);
         log_request_response(request, response_header);
-        return;
-    }
-
-    if (check_php_file(resolved_path)) {
-        // CGI-style response: no Content-Length; the connection close
-        // delimits the body (standard behaviour for piped interpreter
-        // output). Standard header set otherwise.
-        response_header = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\n";
-        if (!set_cookie_header.empty()) response_header += set_cookie_header;
-        response_header += std::string("Server: ") + http::kServerBanner + "\r\n";
-        response_header += "Date: " + http::http_date_now() + "\r\n";
-        response_header += "Connection: close\r\n";
-        response_header += "\r\n";
-
-        log_request_response(request, response_header);
-        handle_php_file(file, &client_socket, response_header.c_str(), head_only ? 0 : 1);
-        fclose(file);
         return;
     }
 
@@ -298,7 +281,7 @@ void serve_static(int client_socket, const HttpRequest& req,
 
     // A directory requested without its trailing slash gets a 301
     // redirect; this also keeps "/admin" (no slash) from serving
-    // "/admin/index.php" around the router's "/admin/" auth prefix
+    // "/admin/index.html" around the router's "/admin/" auth prefix
     // check. Only printable, space-free paths are redirectable so the
     // Location header cannot carry injected CR/LF.
     struct stat path_stat{};

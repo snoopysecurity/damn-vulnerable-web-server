@@ -15,7 +15,7 @@ insecure. Point your tools at it and leave production alone.
   /downloads/     this guide and friends
   /status         JSON status document (no auth)
   /logs           access log viewer (no auth, takes ?filter=)
-  /echo.php       PHP request echo / debug page
+  /echo          request echo / debug page (native)
   /admin/         admin console (HTTP Basic auth)
   /whoami         authenticated identity utility
 
@@ -40,7 +40,7 @@ socket, drains in-flight requests, and exits 0.
   * If you break it, restart it. Crashes cost you nothing.
   * The admin console uses HTTP Basic. The credentials are in the
     source, because of course they are.
-  * /status tells you the version, docroot, and interpreter path.
+  * /status tells you the version, docroot, and CGI helper path.
     Monitors love it; so do recon frameworks.
 
 

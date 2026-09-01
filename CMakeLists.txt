@@ -17,6 +17,7 @@ add_executable(damn_vulnerable_web_server
     http/response.cpp
     handlers/admin.cpp
     handlers/cgi.cpp
+    handlers/echo.cpp
     handlers/static_files.cpp
     handlers/status.cpp
     mime_type_handler.cpp
@@ -29,6 +30,18 @@ add_executable(damn_vulnerable_web_server
     session_manager.cpp
     response_handler.cpp
 )
+
+# ---------------------------------------------------------------------------
+# Bundled native CGI helper (CH-06). A tiny CGI-style executable the
+# server stages through a predictable /tmp path on /cgi-helper; see
+# mime_type_handler.cpp and challenges/README.md#challenge-06. It is
+# looked up next to the running server binary (build/ locally, /app in
+# the serve image), so it just needs to be built alongside the server.
+# ---------------------------------------------------------------------------
+add_executable(dvws_cgi_helper
+    dvws_cgi_helper.cpp
+)
+target_compile_options(dvws_cgi_helper PRIVATE -Wall -Wextra)
 
 # ---------------------------------------------------------------------------
 # Hardening / mitigation flags
@@ -231,6 +244,7 @@ if(ENABLE_LIBFUZZER)
         http/response.cpp
         handlers/admin.cpp
         handlers/cgi.cpp
+        handlers/echo.cpp
         handlers/static_files.cpp
         handlers/status.cpp
         mime_type_handler.cpp

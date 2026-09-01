@@ -7,9 +7,11 @@
 #include "authentication.h"
 #include "handlers/admin.h"
 #include "handlers/cgi.h"
+#include "handlers/echo.h"
 #include "handlers/static_files.h"
 #include "handlers/status.h"
 #include "http/response.h"
+#include "mime_type_handler.h"
 #include "request_logger.h"
 #include "session_manager.h"
 #include "utils.h"
@@ -96,6 +98,23 @@ void dispatch(int client_socket, const char* raw_request) {
     // Log viewer; unauthenticated.
     if (strcmp(req.clean_path, "/logs") == 0) {
         handle_log_viewer(client_socket, req.raw);
+        close(client_socket);
+        return;
+    }
+
+    // Request echo / debug page; unauthenticated.
+    if (strcmp(req.clean_path, "/echo") == 0) {
+        handlers::echo_request(client_socket, req);
+        close(client_socket);
+        return;
+    }
+
+    // CH-06: bundled native CGI helper. Stages a copy of the helper
+    // executable at a predictable /tmp path and executes it (the
+    // insecure temp-file race lives in mime_type_handler.cpp).
+    if (strcmp(req.clean_path, "/cgi-helper") == 0) {
+        handle_cgi_helper(client_socket, req.raw,
+                          req.method == "HEAD" ? 0 : 1);
         close(client_socket);
         return;
     }

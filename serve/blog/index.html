@@ -40,10 +40,10 @@
             and why we still refuse to rotate them.</p>
         </li>
         <li>
-          <div class="meta">2026-05-02 &middot; php &middot; K. Ito</div>
-          <a href="/blog/serving-php-the-temp-file-way.html"><strong>Serving PHP the temp-file way</strong></a>
-          <p>No FPM pool, no mod_php: every request copies the script to a
-            scratch file and hands it to the interpreter. Here's why that's
+          <div class="meta">2026-05-02 &middot; cgi &middot; K. Ito</div>
+          <a href="/blog/serving-cgi-the-temp-file-way.html"><strong>Serving CGI the temp-file way</strong></a>
+          <p>No runtime, no daemon: every request stages the bundled helper
+            binary in a scratch file and executes it. Here's why that's
             fine (it isn't).</p>
         </li>
         <li>
@@ -72,7 +72,7 @@
         <h4>Tools</h4>
         <ul>
           <li><a href="/status">Status endpoint</a></li>
-          <li><a href="/echo.php">Request echo</a></li>
+          <li><a href="/echo">Request echo</a></li>
           <li><a href="/logs">Log viewer</a></li>
         </ul>
       </div>

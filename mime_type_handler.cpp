@@ -3,11 +3,16 @@
 #include "mime_type_handler.h"
 #include "utils.h"
 #include "net_compat.h"
+#include "http/response.h"
+#include "request_logger.h"
+#include "server_config.h"
 #include <cstring>
 #include <cstdlib>
 #include <cstdio>
+#include <string>
 #include <unistd.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 
 const char* get_content_type(const char* file_path) {
@@ -55,59 +60,108 @@ const char* get_content_type(const char* file_path) {
     return "application/octet-stream";
 }
 
-bool check_php_file(const char* file_path) {
-    const char* extension = strrchr(file_path, '.');
-    return (extension != nullptr && strcmp(extension, ".php") == 0);
-}
+void handle_cgi_helper(int client_socket, const char* request, int send_body) {
+    // CH-06: every /cgi-helper request stages a copy of the bundled
+    // dvws_cgi_helper executable at a predictable /tmp path, closes it,
+    // waits, then executes it. The whole sequence is the intentional
+    // CWE-377/CWE-367 temp-file race -- do not "fix" it.
 
-void handle_php_file(FILE* file, int* client_socket, const char* response_header, int send_body) {
+    // Resolve the bundled helper first; without it there is nothing to
+    // stage and the route answers 500 instead.
+    const char* helper_path = get_cgi_helper_path();
+    FILE* helper_file = nullptr;
+    if (helper_path != nullptr) {
+        helper_file = fopen(helper_path, "rb");
+    }
+    if (helper_file == nullptr) {
+        std::string body = http::error_page(
+            500, "Internal Server Error",
+            "The bundled CGI helper executable could not be located.");
+        http::send_status(client_socket, "500 Internal Server Error",
+                          "text/html; charset=utf-8", body, "", send_body == 0);
+        log_request_response(request, "HTTP/1.1 500 Internal Server Error");
+        return;
+    }
+
     pid_t pid = getpid();
 
+    // Predictable staging path: /tmp, filename derived from the PID.
+    // No O_EXCL, no private directory -- deliberately replaceable.
     char temp_file_path[200];
-    snprintf(temp_file_path, sizeof(temp_file_path), "/tmp/php_script_%d.php", pid);
+    snprintf(temp_file_path, sizeof(temp_file_path), "/tmp/dvws_cgi_%d", pid);
 
-    FILE* temp_file = fopen(temp_file_path, "w");
+    FILE* temp_file = fopen(temp_file_path, "wb");
     if (temp_file == nullptr) {
         perror("Failed to create temporary file");
+        fclose(helper_file);
         return;
     }
 
+    // Stage a copy of the bundled helper executable.
     char file_buffer[1024];
     size_t bytes_read;
-    while ((bytes_read = fread(file_buffer, 1, sizeof(file_buffer), file)) > 0) {
+    while ((bytes_read = fread(file_buffer, 1, sizeof(file_buffer), helper_file)) > 0) {
         fwrite(file_buffer, 1, bytes_read, temp_file);
     }
+    fclose(helper_file);
+
+    // The staged copy is closed here and only executed further below:
+    // close-before-execute, the classic TOCTOU shape.
     fclose(temp_file);
 
-    const char* interpreter_path = get_php_interpreter_path();
+    // Intentional race window. The old PHP bridge paid ~100 ms of
+    // interpreter startup between staging and execution; the native
+    // helper is too fast, so the gap is explicit. Anyone who can write
+    // to /tmp can replace the staged executable during this window.
+    // (Skipped in --fuzz mode only so the fuzzer's throughput does not
+    // collapse; the staging itself still runs there.)
+    if (!g_config.fuzz_mode) {
+        usleep(100000);
+    }
 
-    char command[256];
-    snprintf(command, sizeof(command), "%s %s", interpreter_path, temp_file_path);
+    chmod(temp_file_path, 0755);
 
-    FILE* php_output = popen(command, "r");
-    if (php_output == nullptr) {
-        perror("Failed to execute PHP script");
+    // Intentionally execute the predictable temporary file as the
+    // server user. (No shell metacharacters can appear in the path: it
+    // is "/tmp/dvws_cgi_" plus digits.)
+    FILE* helper_output = popen(temp_file_path, "r");
+    if (helper_output == nullptr) {
+        perror("Failed to execute CGI helper");
+        remove(temp_file_path);
         return;
     }
 
-    if (send(*client_socket, response_header, strlen(response_header), DVWS_SEND_FLAGS) < 0) {
+    // CGI-style response: no Content-Length; the connection close
+    // delimits the body (standard behaviour for piped helper output).
+    // The helper's own CGI header block is streamed verbatim as the
+    // first body bytes.
+    std::string response_header = "HTTP/1.1 200 OK\r\nContent-Type: text/plain; charset=utf-8\r\n";
+    response_header += std::string("Server: ") + http::kServerBanner + "\r\n";
+    response_header += "Date: " + http::http_date_now() + "\r\n";
+    response_header += "Connection: close\r\n";
+    response_header += "\r\n";
+
+    log_request_response(request, response_header);
+
+    if (send(client_socket, response_header.c_str(), response_header.length(), DVWS_SEND_FLAGS) < 0) {
         perror("Failed to send response header");
+        pclose(helper_output);
+        remove(temp_file_path);
         return;
     }
 
-    char php_buffer[1024];
-    size_t php_bytes_read;
-    while ((php_bytes_read = fread(php_buffer, 1, sizeof(php_buffer), php_output)) > 0) {
+    char helper_buffer[1024];
+    size_t helper_bytes_read;
+    while ((helper_bytes_read = fread(helper_buffer, 1, sizeof(helper_buffer), helper_output)) > 0) {
         if (send_body) {
-            if (send(*client_socket, php_buffer, php_bytes_read, DVWS_SEND_FLAGS) < 0) {
-                perror("Failed to send PHP output");
-                return;
+            if (send(client_socket, helper_buffer, helper_bytes_read, DVWS_SEND_FLAGS) < 0) {
+                perror("Failed to send CGI helper output");
+                break;
             }
         }
-        // HEAD: drain interpreter output so pclose() sees a clean EOF.
+        // HEAD: drain helper output so pclose() sees a clean EOF.
     }
 
-    // `file` is owned and closed by the caller (serve_file).
-    pclose(php_output);
+    pclose(helper_output);
     remove(temp_file_path);
 }

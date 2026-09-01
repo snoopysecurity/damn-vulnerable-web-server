@@ -9,10 +9,11 @@ extern "C" {
 #endif
 
 const char* get_content_type(const char* file_path);
-bool check_php_file(const char* file_path);
-// send_body: 0 for HEAD requests (interpreter still runs, output is
+// CH-06: stage the bundled dvws_cgi_helper executable at a predictable
+// /tmp path and execute it (insecure temp-file race; see the .cpp).
+// send_body: 0 for HEAD requests (helper still runs, output is
 // drained but not sent), 1 otherwise.
-void handle_php_file(FILE* file, int* client_socket, const char* response_header, int send_body);
+void handle_cgi_helper(int client_socket, const char* request, int send_body);
 
 #ifdef __cplusplus
 }
