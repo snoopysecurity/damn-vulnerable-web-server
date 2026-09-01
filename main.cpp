@@ -32,34 +32,10 @@ static void request_shutdown(int) {
     g_shutdown_requested = 1;
 }
 
-// AFL++ persistent-mode hooks. Under afl-clang-fast these are provided
-// as preprocessor macros; without AFL instrumentation the guarded block
-// is compiled out and the harness falls back to a single-shot stdin read.
-
 static int run_fuzz_mode() {
-#ifdef __AFL_HAVE_MANUAL_CONTROL
-    // Persistent mode: reuse the process across many test cases.
-    // AFL++ recommends 1000-10000 iterations before recycling.
-    __AFL_INIT();
-    while (__AFL_LOOP(10000)) {
-        char request[MAX_REQUEST_SIZE];
-        memset(request, 0, sizeof(request));
-
-        size_t total_read = 0;
-        while (total_read < sizeof(request) - 1) {
-            ssize_t bytes =
-                read(STDIN_FILENO, request + total_read, sizeof(request) - 1 - total_read);
-            if (bytes <= 0) break;
-            total_read += bytes;
-        }
-        if (total_read == 0) continue;
-
-        // Hand fd 0 in; response send()s fail harmlessly under the fuzzer.
-        dispatch(0, request);
-    }
-    return 0;
-#else
-    // Non-AFL fallback: single-shot read from stdin.
+    // Single-shot stdin harness: AFL replaces stdin with one testcase
+    // per process execution, so this mode is reliable in CI and still
+    // exercises the real request parser.
     char request[MAX_REQUEST_SIZE];
     memset(request, 0, sizeof(request));
 
@@ -74,7 +50,6 @@ static int run_fuzz_mode() {
         dispatch(0, request);
     }
     return 0;
-#endif
 }
 
 int main(int argc, char* argv[]) {

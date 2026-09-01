@@ -14,8 +14,8 @@ WORKDIR /src
 COPY . .
 
 # Compile with AFL++ instrumentation and AddressSanitizer.
-# The --fuzz mode in main.cpp uses __AFL_LOOP for persistent-mode
-# throughput (10-100x faster than fork-server-per-input).
+# The --fuzz mode in main.cpp reads one request from stdin per process,
+# which matches AFL's standard execution model in CI.
 ENV AFL_USE_ASAN=1
 RUN cmake -S . -B build \
         -DCMAKE_CXX_COMPILER=afl-clang-fast++ \
