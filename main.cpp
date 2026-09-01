@@ -32,14 +32,9 @@ static void request_shutdown(int) {
     g_shutdown_requested = 1;
 }
 
-// AFL++ persistent-mode hooks. Compiled unconditionally: when the binary
-// is built without afl-clang-fast these expand to nothing at link time
-// (weak symbols supplied by AFL's runtime), and the harness falls back
-// to a single-shot read from stdin.
-#ifdef __AFL_HAVE_MANUAL_CONTROL
-extern "C" int __AFL_LOOP(unsigned int);
-extern "C" void __AFL_INIT(void);
-#endif
+// AFL++ persistent-mode hooks. Under afl-clang-fast these are provided
+// as preprocessor macros; without AFL instrumentation the guarded block
+// is compiled out and the harness falls back to a single-shot stdin read.
 
 static int run_fuzz_mode() {
 #ifdef __AFL_HAVE_MANUAL_CONTROL
