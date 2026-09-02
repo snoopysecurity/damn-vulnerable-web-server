@@ -115,7 +115,7 @@ python3 tests/exploit/run_all.py           # against the default build
 python3 tests/exploit/run_all.py --asan    # ASan build (see note)
 ```
 
-Expected output: `14/14 vulnerabilities still trigger.`
+Expected output: `15/15 vulnerabilities still trigger.`
 
 > Note: `--asan` only (re)builds when `build/damn_vulnerable_web_server`
 > is missing — it will not replace an existing default build. For a real

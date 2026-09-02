@@ -7,6 +7,7 @@
 #include "authentication.h"
 #include "handlers/admin.h"
 #include "handlers/cgi.h"
+#include "handlers/deploy.h"
 #include "handlers/echo.h"
 #include "handlers/static_files.h"
 #include "handlers/status.h"
@@ -38,6 +39,7 @@ const AdminRoute kAdminRoutes[] = {
     {"/admin/add_rule", handlers::add_rule},
     {"/admin/update_rule", handlers::update_rule},
     {"/admin/logging", handlers::logging},
+    {"/admin/deploy_site", handlers::deploy_site},  // CH-14: Zip Slip
     {"/whoami", handlers::whoami},  // Basic-Auth protected
 };
 

@@ -26,6 +26,7 @@ do not renumber challenges. See the
 | 07 | Username Info Leak           | Memory         | CWE-125 | `GET /whoami`                          | [card](challenges/README.md#challenge-07) | [sol](challenges/README.md#solution-07) |
 | 09 | Heap Buffer Overflow          | Memory         | CWE-122 | `POST /admin/system_status`            | [card](challenges/README.md#challenge-09) | [sol](challenges/README.md#solution-09) |
 | 10 | Integer Overflow              | Memory         | CWE-190 | `POST /admin/upload_file`              | [card](challenges/README.md#challenge-10) | [sol](challenges/README.md#solution-10) |
+| 14 | Zip Slip                      | Web            | CWE-22  | `POST /admin/deploy_site`              | [card](challenges/README.md#challenge-14) | [sol](challenges/README.md#solution-14) |
 
 ## Advanced — compose primitives
 

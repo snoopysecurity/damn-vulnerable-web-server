@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(damn_vulnerable_web_server CXX)
+project(damn_vulnerable_web_server C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -17,6 +17,7 @@ add_executable(damn_vulnerable_web_server
     http/response.cpp
     handlers/admin.cpp
     handlers/cgi.cpp
+    handlers/deploy.cpp
     handlers/echo.cpp
     handlers/static_files.cpp
     handlers/status.cpp
@@ -29,6 +30,7 @@ add_executable(damn_vulnerable_web_server
     utils.cpp
     session_manager.cpp
     response_handler.cpp
+    miniz.c
 )
 
 # ---------------------------------------------------------------------------
@@ -220,6 +222,11 @@ set_source_files_properties(base64.cpp PROPERTIES
     COMPILE_FLAGS "-Wno-sign-compare"
 )
 
+# miniz is C code; compile it as C
+set_source_files_properties(miniz.c PROPERTIES
+    LANGUAGE C
+)
+
 target_link_libraries(damn_vulnerable_web_server PRIVATE OpenSSL::SSL OpenSSL::Crypto Threads::Threads)
 
 # ---------------------------------------------------------------------------
@@ -244,6 +251,7 @@ if(ENABLE_LIBFUZZER)
         http/response.cpp
         handlers/admin.cpp
         handlers/cgi.cpp
+        handlers/deploy.cpp
         handlers/echo.cpp
         handlers/static_files.cpp
         handlers/status.cpp
@@ -256,6 +264,7 @@ if(ENABLE_LIBFUZZER)
         utils.cpp
         session_manager.cpp
         response_handler.cpp
+        miniz.c
     )
 
     add_executable(fuzz_dispatch

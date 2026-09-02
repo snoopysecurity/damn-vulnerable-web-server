@@ -151,6 +151,21 @@
           </div>
         </section>
 
+        <section class="panel">
+          <div class="card">
+            <h3>Quick Deploy</h3>
+            <p>Upload a .zip archive containing HTML, CSS, JavaScript and assets.
+              The site will be extracted to <code>/deploy/</code> and served immediately.</p>
+            <form class="inline" method="post" action="/admin/deploy_site" 
+                  enctype="multipart/form-data" id="deploy-form">
+              <input type="file" name="site" accept=".zip" required id="deploy-file">
+              <button type="submit">Deploy Site</button>
+            </form>
+            <p class="note">Access your deployed site at 
+              <a href="/deploy/">/deploy/</a> after upload. Max 10MB.</p>
+          </div>
+        </section>
+
       </div>
     </div>
   </main>

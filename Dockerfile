@@ -27,11 +27,8 @@ RUN cmake -S . -B build \
 RUN mkdir -p fuzz/out
 VOLUME /src/fuzz/out
 
-# Corpus + dictionary live under fuzz/ in the repo; symlink for AFL's -i.
-RUN ln -sf /src/fuzz/corpus /src/fuzz/in
-
 CMD ["/usr/local/bin/afl-fuzz", \
-     "-i", "/src/fuzz/in", \
+     "-i", "/src/fuzz/corpus", \
      "-o", "/src/fuzz/out", \
      "-m", "none", \
      "-x", "/src/fuzz/dict.txt", \

