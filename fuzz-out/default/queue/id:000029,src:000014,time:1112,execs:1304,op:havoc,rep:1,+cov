@@ -1,1 +1,0 @@
-GET /?foo=bar&baz=qux&pGET /cgi-helper HTTP/1.1
