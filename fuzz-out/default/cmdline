@@ -1,0 +1,4 @@
+/src/build/damn_vulnerable_web_server
+/src/serve
+8081
+--fuzz

@@ -152,6 +152,11 @@ jobs:
 
       - name: Assert the fuzzer actually executed
         run: |
+          # AFL++ runs as root inside the container, so the bind-mounted
+          # output is owned by root with mode 0700 on Linux runners. Take
+          # ownership back before reading, otherwise the non-root runner
+          # user cannot even stat fuzz-out/default/fuzzer_stats.
+          sudo chown -R "$(id -u):$(id -g)" fuzz-out
           test -f fuzz-out/default/fuzzer_stats
           execs=$(grep -E '^execs_done' fuzz-out/default/fuzzer_stats | head -1)
           echo "$execs"
