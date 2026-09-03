@@ -127,13 +127,17 @@ jobs:
         # The AFL_* env vars are the documented container/CI workarounds:
         # no CPU affinity (core binding is blocked by Docker), no CPU
         # frequency check (afl-system-config cannot run on the host), and
-        # tolerate the core_pattern pipe check.
+        # tolerate the core_pattern pipe check. AFL_IGNORE_SEED_PROBLEMS
+        # lets AFL++ skip the intentionally crash-inducing corpus seeds
+        # (this is a deliberately vulnerable target built with ASAN)
+        # instead of aborting at startup, so real fuzzing still runs.
         run: |
           mkdir -p fuzz-out
           docker run --rm \
               -e AFL_NO_AFFINITY=1 \
               -e AFL_SKIP_CPUFREQ=1 \
               -e AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 \
+              -e AFL_IGNORE_SEED_PROBLEMS=1 \
               --security-opt seccomp=unconfined \
               -v "$PWD/fuzz-out:/src/fuzz/out" \
               vuln-server-fuzz \
