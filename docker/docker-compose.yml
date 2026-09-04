@@ -6,8 +6,8 @@
 services:
   dvws:
     build:
-      context: .
-      dockerfile: Dockerfile.serve
+      context: ..
+      dockerfile: docker/Dockerfile.serve
     image: dvws-serve:latest
     container_name: dvws-serve
     ports:

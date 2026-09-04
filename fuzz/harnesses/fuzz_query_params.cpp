@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <string>
 
-#include "../../utils.h"
+#include "utils.h"
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
     if (size > 8192) return 0;

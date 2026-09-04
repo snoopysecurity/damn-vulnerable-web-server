@@ -54,22 +54,22 @@ jobs:
         # Smoke test: the vulnerable code patterns are still in the source.
         run: |
           set -e
-          grep -qE 'strcpy\(g_config\.server_dir, argv\[1\]\)' main.cpp
-          grep -q 'strcpy(out.clean_path, path_with_query)'      http/request.cpp
-          grep -q 'joined.rfind(docroot, 0) != 0'                handlers/static_files.cpp
-          grep -q 'shell_escape(url_decode(search))'             request_logger.cpp
-          grep -q 'fprintf(log_file, field.c_str())'             request_logger.cpp
-          grep -q 'set_session_data(session_id, "authenticated:admin")' router.cpp
-          grep -q 'SESSION_%08x'                                 session_manager.cpp
-          grep -q '/tmp/dvws_cgi_%d'                             mime_type_handler.cpp
-          grep -q 'std::string(response, sizeof(response))'      handlers/admin.cpp
-          grep -q 'char response\[128\];'                       handlers/admin.cpp
-          grep -q 'entry.sink->write(entry.record)'              logging_sink.cpp
-          grep -q 'delete old;'                                  logging_sink.cpp
-          grep -q 'estimate_decoded_length(status_pos)'          handlers/admin.cpp
-          grep -q 'sizeof(UploadHeader) + content_len + filename_len' handlers/admin.cpp
-          grep -q 'route_types()\[path\] = new_type;'            handlers/admin.cpp
-          grep -q 'static_cast<CgiRoute\*>(rule)'                handlers/cgi.cpp
+          grep -qE 'strcpy\(g_config\.server_dir, argv\[1\]\)' src/main.cpp
+          grep -q 'strcpy(out.clean_path, path_with_query)'      src/http/request.cpp
+          grep -q 'joined.rfind(docroot, 0) != 0'                src/handlers/static_files.cpp
+          grep -q 'shell_escape(url_decode(search))'             src/request_logger.cpp
+          grep -q 'fprintf(log_file, field.c_str())'             src/request_logger.cpp
+          grep -q 'set_session_data(session_id, "authenticated:admin")' src/router.cpp
+          grep -q 'SESSION_%08x'                                 src/session_manager.cpp
+          grep -q '/tmp/dvws_cgi_%d'                             src/mime_type_handler.cpp
+          grep -q 'std::string(response, sizeof(response))'      src/handlers/admin.cpp
+          grep -q 'char response\[128\];'                       src/handlers/admin.cpp
+          grep -q 'entry.sink->write(entry.record)'              src/logging_sink.cpp
+          grep -q 'delete old;'                                  src/logging_sink.cpp
+          grep -q 'estimate_decoded_length(status_pos)'          src/handlers/admin.cpp
+          grep -q 'sizeof(UploadHeader) + content_len + filename_len' src/handlers/admin.cpp
+          grep -q 'route_types()\[path\] = new_type;'            src/handlers/admin.cpp
+          grep -q 'static_cast<CgiRoute\*>(rule)'                src/handlers/cgi.cpp
 
       - name: Run exploit regression suite
         run: python3 tests/exploit/run_all.py

@@ -23,8 +23,8 @@
 #include <cstdlib>
 #include <cstring>
 
-#include "../../router.h"
-#include "../../server_config.h"
+#include "router.h"
+#include "server_config.h"
 
 extern "C" int LLVMFuzzerInitialize(int* /*argc*/, char*** /*argv*/) {
     // Sane defaults for the global config so path-traversal / static-file

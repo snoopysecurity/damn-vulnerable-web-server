@@ -4,25 +4,21 @@ on:
   push:
     branches: [main, master]
     paths:
-      - "Dockerfile*"
-      - "docker-compose.yml"
-      - "*.cpp"
-      - "*.h"
-      - "handlers/**"
-      - "http/**"
+      - "docker/**"
+      - "src/**"
+      - "third_party/**"
       - "serve/**"
       - "fuzz/**"
+      - "CMakeLists.txt"
       - ".github/workflows/docker.yml"
   pull_request:
     paths:
-      - "Dockerfile*"
-      - "docker-compose.yml"
-      - "*.cpp"
-      - "*.h"
-      - "handlers/**"
-      - "http/**"
+      - "docker/**"
+      - "src/**"
+      - "third_party/**"
       - "serve/**"
       - "fuzz/**"
+      - "CMakeLists.txt"
       - ".github/workflows/docker.yml"
   workflow_dispatch:
 
@@ -36,7 +32,7 @@ concurrency:
 
 jobs:
   serve-image:
-    name: serve image (Dockerfile.serve)
+    name: serve image (docker/Dockerfile.serve)
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -46,10 +42,10 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Build image
-        run: docker compose build
+        run: docker compose -f docker/docker-compose.yml build
 
       - name: Start container via compose (read-only rootfs, tmpfs /tmp, caps dropped)
-        run: docker compose up -d
+        run: docker compose -f docker/docker-compose.yml up -d
 
       - name: Wait for the server to accept requests
         run: |
@@ -61,7 +57,7 @@ jobs:
             sleep 1
           done
           echo "::error::server never became ready"
-          docker compose logs
+          docker compose -f docker/docker-compose.yml logs
           exit 1
 
       - name: Smoke test - front page is served
@@ -105,10 +101,10 @@ jobs:
 
       - name: Teardown
         if: always()
-        run: docker compose down -v --remove-orphans
+        run: docker compose -f docker/docker-compose.yml down -v --remove-orphans
 
   fuzz-image:
-    name: fuzz image (Dockerfile, AFL++)
+    name: fuzz image (docker/Dockerfile.fuzz, AFL++)
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -118,7 +114,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Build image
-        run: docker build -t vuln-server-fuzz -f Dockerfile .
+        run: docker build -t vuln-server-fuzz -f docker/Dockerfile.fuzz .
 
       - name: Run a 20-second fuzz session
         # Same command as the image CMD plus -V 20, which makes AFL++ shut

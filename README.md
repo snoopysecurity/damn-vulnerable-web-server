@@ -8,14 +8,16 @@ in [`CHALLENGES.md`](CHALLENGES.md).
 
 | Path                                | What lives there                                     |
 |-------------------------------------|------------------------------------------------------|
-| `main.cpp`                          | arg parsing + accept loop                            |
-| `router.cpp` / `router.h`           | request dispatcher                                   |
-| `dvws_cgi_helper.cpp`              | bundled native CGI helper executable (CH-06)         |
-| `http/`                             | `HttpRequest` parser + response/error-page helpers   |
-| `handlers/`                         | one file per intentional vuln (admin / cgi / static) |
-| `authentication.cpp`, `session_manager.cpp`, `request_logger.cpp`, `mime_type_handler.cpp` | supporting subsystems |
+| `src/main.cpp`                      | arg parsing + accept loop                            |
+| `src/router.cpp` / `router.h`       | request dispatcher                                   |
+| `src/dvws_cgi_helper.cpp`           | bundled native CGI helper executable (CH-06)         |
+| `src/http/`                         | `HttpRequest` parser + response/error-page helpers   |
+| `src/handlers/`                     | one file per intentional vuln (admin / cgi / static) |
+| `src/authentication.cpp`, `src/session_manager.cpp`, `src/request_logger.cpp`, `src/mime_type_handler.cpp` | supporting subsystems |
+| `third_party/miniz/`                | bundled miniz zip library (C, unmodified)            |
+| `docker/`                           | Dockerfiles + docker-compose (serve + fuzz images)   |
 | `serve/`                            | web-root served on the wire                          |
-| `challenges/README.md`               | all challenge cards + solutions in one file (spoilers) |
+| `challenges/README.md`              | all challenge cards + solutions in one file (spoilers) |
 | `tests/exploit/`                    | regression tests: prove each vuln still triggers     |
 
 
@@ -129,7 +131,7 @@ Expected output: `15/15 vulnerabilities still trigger.`
 ## Fuzzing with AFL++
 
 ```bash
-docker build -t vuln-server-fuzz .
+docker build -t vuln-server-fuzz -f docker/Dockerfile.fuzz .
 docker run --rm -v $(pwd)/fuzz_output:/src/fuzz/out vuln-server-fuzz
 ```
 

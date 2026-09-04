@@ -9,28 +9,28 @@ find_package(Threads REQUIRED)
 include_directories(${OPENSSL_INCLUDE_DIR})
 
 add_executable(damn_vulnerable_web_server
-    main.cpp
-    router.cpp
-    thread_pool.cpp
-    cgi_rules.cpp
-    http/request.cpp
-    http/response.cpp
-    handlers/admin.cpp
-    handlers/cgi.cpp
-    handlers/deploy.cpp
-    handlers/echo.cpp
-    handlers/static_files.cpp
-    handlers/status.cpp
-    mime_type_handler.cpp
-    request_logger.cpp
-    logging_sink.cpp
-    error_handling.cpp
-    authentication.cpp
-    base64.cpp
-    utils.cpp
-    session_manager.cpp
-    response_handler.cpp
-    miniz.c
+    src/main.cpp
+    src/router.cpp
+    src/thread_pool.cpp
+    src/cgi_rules.cpp
+    src/http/request.cpp
+    src/http/response.cpp
+    src/handlers/admin.cpp
+    src/handlers/cgi.cpp
+    src/handlers/deploy.cpp
+    src/handlers/echo.cpp
+    src/handlers/static_files.cpp
+    src/handlers/status.cpp
+    src/mime_type_handler.cpp
+    src/request_logger.cpp
+    src/logging_sink.cpp
+    src/error_handling.cpp
+    src/authentication.cpp
+    src/base64.cpp
+    src/utils.cpp
+    src/session_manager.cpp
+    src/response_handler.cpp
+    third_party/miniz/miniz.c
 )
 
 # ---------------------------------------------------------------------------
@@ -41,7 +41,7 @@ add_executable(damn_vulnerable_web_server
 # the serve image), so it just needs to be built alongside the server.
 # ---------------------------------------------------------------------------
 add_executable(dvws_cgi_helper
-    dvws_cgi_helper.cpp
+    src/dvws_cgi_helper.cpp
 )
 target_compile_options(dvws_cgi_helper PRIVATE -Wall -Wextra)
 
@@ -185,7 +185,8 @@ endif()
 
 target_include_directories(damn_vulnerable_web_server PRIVATE
     ${OPENSSL_INCLUDE_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/miniz
 )
 
 # Turn -Wall -Wextra on globally so accidental bugs are surfaced. The
@@ -197,33 +198,33 @@ target_compile_options(damn_vulnerable_web_server PRIVATE
     -Wno-unused-parameter
 )
 
-set_source_files_properties(request_logger.cpp PROPERTIES
+set_source_files_properties(src/request_logger.cpp PROPERTIES
     COMPILE_FLAGS "-Wno-format-security -Wno-format-nonliteral"
 )
 
-set_source_files_properties(http/request.cpp PROPERTIES
+set_source_files_properties(src/http/request.cpp PROPERTIES
     COMPILE_FLAGS "-Wno-deprecated-declarations"
 )
 
-set_source_files_properties(main.cpp PROPERTIES
+set_source_files_properties(src/main.cpp PROPERTIES
     COMPILE_FLAGS "-Wno-deprecated-declarations"
 )
 
-set_source_files_properties(handlers/static_files.cpp PROPERTIES
+set_source_files_properties(src/handlers/static_files.cpp PROPERTIES
     COMPILE_FLAGS "-Wno-deprecated-declarations"
 )
 
-set_source_files_properties(utils.cpp PROPERTIES
+set_source_files_properties(src/utils.cpp PROPERTIES
     COMPILE_FLAGS "-Wno-deprecated-declarations"
 )
 
 # Third-party-shaped base64 helper; keep as-is.
-set_source_files_properties(base64.cpp PROPERTIES
+set_source_files_properties(src/base64.cpp PROPERTIES
     COMPILE_FLAGS "-Wno-sign-compare"
 )
 
 # miniz is C code; compile it as C
-set_source_files_properties(miniz.c PROPERTIES
+set_source_files_properties(third_party/miniz/miniz.c PROPERTIES
     LANGUAGE C
 )
 
@@ -245,26 +246,26 @@ if(ENABLE_LIBFUZZER)
     endif()
 
     set(FUZZ_COMMON_SOURCES
-        router.cpp
-        cgi_rules.cpp
-        http/request.cpp
-        http/response.cpp
-        handlers/admin.cpp
-        handlers/cgi.cpp
-        handlers/deploy.cpp
-        handlers/echo.cpp
-        handlers/static_files.cpp
-        handlers/status.cpp
-        mime_type_handler.cpp
-        request_logger.cpp
-        logging_sink.cpp
-        error_handling.cpp
-        authentication.cpp
-        base64.cpp
-        utils.cpp
-        session_manager.cpp
-        response_handler.cpp
-        miniz.c
+        src/router.cpp
+        src/cgi_rules.cpp
+        src/http/request.cpp
+        src/http/response.cpp
+        src/handlers/admin.cpp
+        src/handlers/cgi.cpp
+        src/handlers/deploy.cpp
+        src/handlers/echo.cpp
+        src/handlers/static_files.cpp
+        src/handlers/status.cpp
+        src/mime_type_handler.cpp
+        src/request_logger.cpp
+        src/logging_sink.cpp
+        src/error_handling.cpp
+        src/authentication.cpp
+        src/base64.cpp
+        src/utils.cpp
+        src/session_manager.cpp
+        src/response_handler.cpp
+        third_party/miniz/miniz.c
     )
 
     add_executable(fuzz_dispatch
@@ -276,19 +277,22 @@ if(ENABLE_LIBFUZZER)
     )
     target_link_options(fuzz_dispatch PRIVATE -fsanitize=fuzzer,address,undefined)
     target_include_directories(fuzz_dispatch PRIVATE
-        ${OPENSSL_INCLUDE_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
+        ${OPENSSL_INCLUDE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/third_party/miniz)
     target_link_libraries(fuzz_dispatch PRIVATE OpenSSL::SSL OpenSSL::Crypto)
 
     add_executable(fuzz_query_params
         fuzz/harnesses/fuzz_query_params.cpp
-        utils.cpp
-        base64.cpp
+        src/utils.cpp
+        src/base64.cpp
     )
     target_compile_options(fuzz_query_params PRIVATE
         -fsanitize=fuzzer,address,undefined -g -O1
     )
     target_link_options(fuzz_query_params PRIVATE -fsanitize=fuzzer,address,undefined)
     target_include_directories(fuzz_query_params PRIVATE
-        ${OPENSSL_INCLUDE_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
+        ${OPENSSL_INCLUDE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/src)
     target_link_libraries(fuzz_query_params PRIVATE OpenSSL::SSL OpenSSL::Crypto)
 endif()

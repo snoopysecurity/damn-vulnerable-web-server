@@ -65,10 +65,10 @@ fuzz: docker-fuzz
 	docker run --rm -v $$(pwd)/fuzz_output:/src/fuzz/out vuln-server-fuzz
 
 docker-fuzz:
-	docker build -t vuln-server-fuzz -f Dockerfile .
+	docker build -t vuln-server-fuzz -f docker/Dockerfile.fuzz .
 
 docker:
-	docker build -t vuln-server-serve -f Dockerfile.serve .
+	docker build -t vuln-server-serve -f docker/Dockerfile.serve .
 
 format:
 	@command -v clang-format >/dev/null || { echo "clang-format not installed"; exit 1; }

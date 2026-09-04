@@ -14,7 +14,7 @@
 
 #define MINIZ_NO_STDIO
 #define MINIZ_NO_TIME
-#include "../miniz.h"
+#include "miniz.h"
 
 #include <sys/socket.h>
 #include <sys/stat.h>
