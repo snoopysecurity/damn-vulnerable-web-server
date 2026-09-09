@@ -1,7 +1,6 @@
 # Damn Vulnerable Web Server
 
-A tiny, deliberately-broken HTTP server written in C++ for CTFs and
-exploit-development workshops. Every bug is intentional and documented
+A tiny, deliberately-vulnerable HTTP web server written in C++. Every bug is intentional and documented
 in [`CHALLENGES.md`](CHALLENGES.md).
 
 ## Repository layout
